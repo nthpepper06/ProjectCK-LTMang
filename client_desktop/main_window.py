@@ -12,9 +12,14 @@ from typing import Optional
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QFont, QKeyEvent
 from PyQt6.QtWidgets import (
     QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -48,6 +53,7 @@ class ExamMainWindow(QWidget):
         self.server_port = server_port
         self.student_id = "SV2026_01"
         self.student_name = "Nguyen Van A"
+        self.is_fullscreen_mode = True
 
         # 1. Initialize Network Client
         self.net_client = NetworkClient(
@@ -67,7 +73,6 @@ class ExamMainWindow(QWidget):
 
         # 3. Security Subsystems (OS-Level)
         self.monitor_blocker = MultiMonitorBlocker()
-        self.monitor_blocker.blackout_secondary_screens()
 
         self.clipboard_sanitizer = ClipboardSanitizer(sanitize_interval_ms=2000, parent=self)
         self.clipboard_sanitizer.start()
@@ -76,7 +81,7 @@ class ExamMainWindow(QWidget):
         self.process_watchdog.prohibited_process_detected.connect(self._on_prohibited_process)
         self.process_watchdog.start()
 
-        # 4. AI Proctoring Thread
+        # 4. AI Proctoring Thread (Single Source of Camera Capture)
         self.proctor_thread = AIProctorThread(camera_index=0)
         self.proctor_thread.frame_ready.connect(self._on_camera_frame)
         self.proctor_thread.violation_detected.connect(self._on_ai_violation)
@@ -98,12 +103,59 @@ class ExamMainWindow(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
+        # Top Control / Title Bar with Emergency Exit and Fullscreen Toggle
+        control_bar = QFrame()
+        control_bar.setFixedHeight(38)
+        control_bar.setStyleSheet("""
+            background-color: #0B0F19;
+            border-bottom: 1px solid #1E293B;
+            padding: 0px 10px;
+        """)
+        c_layout = QHBoxLayout(control_bar)
+        c_layout.setContentsMargins(10, 0, 10, 0)
+
+        lbl_app_tag = QLabel("🛡️ SMART AI PROCTORING & SECURE EXAMINATION PLATFORM")
+        lbl_app_tag.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        lbl_app_tag.setStyleSheet("color: #60A5FA;")
+        c_layout.addWidget(lbl_app_tag)
+        c_layout.addStretch()
+
+        # Toggle Fullscreen / Windowed Mode (F11)
+        self.btn_toggle_screen = QPushButton("⛶ Cửa sổ / Toàn màn hình (F11)")
+        self.btn_toggle_screen.setFont(QFont("Segoe UI", 9))
+        self.btn_toggle_screen.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_toggle_screen.setStyleSheet("""
+            QPushButton {
+                background-color: #1E293B; color: #CBD5E1; border: 1px solid #334155; border-radius: 4px; padding: 4px 10px;
+            }
+            QPushButton:hover { background-color: #334155; color: white; }
+        """)
+        self.btn_toggle_screen.clicked.connect(self._toggle_fullscreen_mode)
+        c_layout.addWidget(self.btn_toggle_screen)
+        c_layout.addSpacing(10)
+
+        # Emergency Exit / Close Button
+        btn_exit = QPushButton("✕ Thoát Kiosk")
+        btn_exit.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        btn_exit.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_exit.setStyleSheet("""
+            QPushButton {
+                background-color: #7F1D1D; color: #FECACA; border: 1px solid #991B1B; border-radius: 4px; padding: 4px 12px;
+            }
+            QPushButton:hover { background-color: #DC2626; color: white; }
+        """)
+        btn_exit.clicked.connect(self._prompt_exit_dialog)
+        c_layout.addWidget(btn_exit)
+
+        main_layout.addWidget(control_bar)
+
         self.stacked_widget = QStackedWidget(self)
 
-        # SCREEN 1: Pre-flight System Check
+        # SCREEN 1: Pre-flight System Check (Shares proctor_thread)
         self.screen_preflight = PreflightScreen(
             server_host=self.server_host,
-            server_port=self.server_port
+            server_port=self.server_port,
+            proctor_thread=self.proctor_thread
         )
         self.screen_preflight.preflight_passed.connect(self._goto_screen_login)
         self.stacked_widget.addWidget(self.screen_preflight)
@@ -125,11 +177,9 @@ class ExamMainWindow(QWidget):
         self.stacked_widget.setCurrentIndex(0)
 
     def _goto_screen_login(self) -> None:
-        """Transitions from Screen 1 to Screen 2."""
-        self.stacked_widget.setCurrentIndex(1)
+        self.stacked_widget.setCurrentWidget(self.screen_login)
 
     def _goto_screen_exam(self, student_id: str, student_name: str, session_token: str) -> None:
-        """Transitions from Screen 2 to Screen 3."""
         self.student_id = student_id
         self.student_name = student_name
 
@@ -140,43 +190,35 @@ class ExamMainWindow(QWidget):
         )
         self.screen_exam.exam_submitted.connect(self._goto_screen_receipt)
         
-        # Insert at index 2
-        self.stacked_widget.insertWidget(2, self.screen_exam)
-        self.stacked_widget.setCurrentIndex(2)
+        self.stacked_widget.addWidget(self.screen_exam)
+        self.stacked_widget.setCurrentWidget(self.screen_exam)
 
     def _goto_screen_receipt(self, receipt: dict, server_sig: str, client_sig: str) -> None:
-        """Transitions from Screen 3 to Screen 4."""
         self.screen_receipt.set_receipt_data(receipt, server_sig, client_sig)
         self.stacked_widget.setCurrentWidget(self.screen_receipt)
 
     def _on_camera_frame(self, q_image) -> None:
-        """Routes camera frame to whichever screen is currently active."""
-        cur_idx = self.stacked_widget.currentIndex()
-        if cur_idx == 1:
-            self.screen_login.update_camera_frame(q_image)
-        elif cur_idx == 2 and self.screen_exam:
-            self.screen_exam.update_camera_frame(q_image)
+        """Dynamically delivers real-time camera frames to whichever screen is currently active."""
+        cur_widget = self.stacked_widget.currentWidget()
+        if hasattr(cur_widget, "update_camera_frame"):
+            cur_widget.update_camera_frame(q_image)
 
     def _on_ai_telemetry(self, yaw: float, pitch: float, roll: float, face_count: int) -> None:
         if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam:
             self.screen_exam.update_telemetry(yaw, pitch, roll, face_count)
 
     def _on_ai_violation(self, v_type: str, details: str, evidence_jpeg: bytes) -> None:
-        """Catches computer vision proctoring violations."""
         if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam:
             self.screen_exam.log_violation(f"⚠️ [{v_type}] {details}")
-        # Transmit to TCP Server
         self.net_client.report_violation(v_type, details, evidence_jpeg)
 
     def _on_prohibited_process(self, proc_name: str, pid: int, desc: str) -> None:
-        """Catches background unauthorized processes."""
         msg = f"Phát hiện phần mềm bị cấm: {proc_name} (PID: {pid}) - {desc}"
         if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam:
             self.screen_exam.log_violation(f"🚨 [PROHIBITED_PROCESS] {msg}")
         self.net_client.report_violation("PROHIBITED_PROCESS", msg)
 
     def _on_multicast_command(self, cmd: CommandType, payload: dict) -> None:
-        """Handles synchronized commands from proctor over UDP Multicast."""
         if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam:
             if cmd == CommandType.CMD_EXAM_START:
                 self.screen_exam.is_exam_active = True
@@ -189,23 +231,47 @@ class ExamMainWindow(QWidget):
                 self.screen_exam.is_paused = False
                 self.screen_exam.log_violation("▶️ Giám thị: TIẾP TỤC THI!")
             elif cmd == CommandType.CMD_EXAM_FINISH:
-                self.screen_exam.log_violation("⏰ Giám thị: HẾT GIỜ LÀM BÀI! Đang tự động nộp bài...")
+                self.screen_exam.log_violation("⏰ Giám thị: HẾT GIỜ LÀM BÀI! Tự động nộp bài...")
                 self.screen_exam._execute_submit_exam()
             elif cmd == CommandType.CMD_ANNOUNCEMENT:
-                self.screen_exam.log_violation(f"📢 Thông báo Giám thị: {payload.get('message', '')}")
+                self.screen_exam.log_violation(f"📢 Giám thị: {payload.get('message', '')}")
+
+    def _toggle_fullscreen_mode(self) -> None:
+        """Toggles between strict fullscreen Kiosk and convenient windowed mode."""
+        if self.is_fullscreen_mode:
+            self.is_fullscreen_mode = False
+            self.showNormal()
+            self.resize(1240, 820)
+        else:
+            self.is_fullscreen_mode = True
+            self.showFullScreen()
+
+    def _prompt_exit_dialog(self) -> None:
+        """Safe exit confirmation dialog."""
+        reply = QMessageBox.question(
+            self,
+            "Xác nhận thoát Kiosk",
+            "Bạn có chắc chắn muốn đóng ứng dụng khảo thí?\n(Dành cho Giám thị / Thử nghiệm hệ thống)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self.close()
 
     # --- KIOSK MODE: ANTI-ALT-TAB & FOCUS LOSS DETECTION ---
     def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.Type.ActivationChange:
             if not self.isActiveWindow():
                 if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam and not self.screen_exam.is_submitted:
-                    self.screen_exam.log_violation("🚨 CẢNH BÁO GIAN LẬN: Mất tiêu điểm cửa sổ thi (Focus Lost / Alt-Tab)!")
-                    self.net_client.report_violation("FOCUS_LOST", "Thí sinh click ra ngoài hoặc chuyển tab ứng dụng.")
+                    self.screen_exam.log_violation("🚨 CẢNH BÁO: Mất tiêu điểm cửa sổ thi (Focus Lost / Alt-Tab)!")
+                    self.net_client.report_violation("FOCUS_LOST", "Thí sinh chuyển đổi ứng dụng hoặc mở tab khác.")
         super().changeEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
-        if event.key() in (Qt.Key.Key_Escape, Qt.Key.Key_Alt, Qt.Key.Key_Meta, Qt.Key.Key_F11):
-            event.ignore()
+        if event.key() == Qt.Key.Key_F11:
+            self._toggle_fullscreen_mode()
+            return
+        elif event.key() == Qt.Key.Key_Escape:
+            self._prompt_exit_dialog()
             return
         super().keyPressEvent(event)
 

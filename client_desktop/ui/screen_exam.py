@@ -1,6 +1,6 @@
 """
 Secure Examination & Proctoring Platform
-client_desktop/ui/screen_exam.py - Screen 3: Optimized Exam View with Question Palette, Local Auto-Save & Auto-Reconnect
+client_desktop/ui/screen_exam.py - Screen 3: Optimized Exam View with Question Palette, Local Auto-Save & Sticky Bottom Bar
 """
 
 import os
@@ -8,8 +8,8 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QFont, QImage, QPixmap
+from PyQt6.QtCore import QEvent, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFont, QImage, QPixmap, QWheelEvent
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -21,7 +21,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QSplitter,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -32,7 +31,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from client_desktop.network_client import NetworkClient
 from client_desktop.storage.local_db import LocalDraftStorage
-from common.protocol import CommandType
 
 
 class SubmissionConfirmationDialog(QDialog):
@@ -41,52 +39,49 @@ class SubmissionConfirmationDialog(QDialog):
     def __init__(self, total: int, done: int, not_done: int, review: int, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Xác nhận Nộp bài thi")
-        self.setFixedSize(450, 320)
+        self.setFixedSize(460, 330)
         self.setStyleSheet("background-color: #1E293B; color: #F8FAFC;")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(25, 20, 25, 20)
-        layout.setSpacing(15)
+        layout.setSpacing(14)
 
-        lbl_head = QLabel("XÁC NHẬN NỘP BÀI THI & KÝ SỐ")
+        lbl_head = QLabel("XÁC NHẬN NỘP BÀI THI & KÝ SỐ RSA")
         lbl_head.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         lbl_head.setStyleSheet("color: #60A5FA;")
         layout.addWidget(lbl_head)
 
-        lbl_desc = QLabel("Vui lòng rà soát thống kê các câu hỏi trước khi đóng bài:")
+        lbl_desc = QLabel("Vui lòng kiểm tra kỹ số lượng câu trả lời trước khi đóng bài:")
         lbl_desc.setFont(QFont("Segoe UI", 10))
         layout.addWidget(lbl_desc)
 
-        # Stats summary box
         box = QFrame()
         box.setStyleSheet("background-color: #0F172A; border: 1px solid #334155; border-radius: 8px; padding: 12px;")
         box_layout = QVBoxLayout(box)
 
         lbl_total = QLabel(f"• Tổng số câu hỏi: <b>{total} câu</b>")
         lbl_done = QLabel(f"• Đã hoàn thành câu trả lời: <b style='color: #10B981;'>{done} câu</b>")
-        lbl_not_done = QLabel(f"• Chưa trả lời: <b style='color: #EF4444;'>{not_done} câu</b>")
-        lbl_review = QLabel(f"• Câu đánh dấu cần xem lại: <b style='color: #F59E0B;'>{review} câu</b>")
+        lbl_not_done = QLabel(f"• Chưa hoàn thành: <b style='color: #EF4444;'>{not_done} câu</b>")
+        lbl_review = QLabel(f"• Đánh dấu cần xem lại: <b style='color: #F59E0B;'>{review} câu</b>")
 
         for lbl in (lbl_total, lbl_done, lbl_not_done, lbl_review):
             lbl.setFont(QFont("Segoe UI", 10))
             box_layout.addWidget(lbl)
-
         layout.addWidget(box)
 
-        lbl_note = QLabel("⚠️ Lưu ý: Sau khi nộp, bài làm sẽ được băm SHA-256 và ký số điện tử RSA 2048-bit để chống chối bỏ. Bạn sẽ không thể sửa đổi câu trả lời.")
+        lbl_note = QLabel("⚠️ Bài làm sẽ được ký số bằng khóa bí mật RSA 2048-bit và gửi biên lai xác thực từ máy chủ.")
         lbl_note.setWordWrap(True)
         lbl_note.setFont(QFont("Segoe UI", 9))
         lbl_note.setStyleSheet("color: #94A3B8;")
         layout.addWidget(lbl_note)
 
-        # Buttons
         btn_layout = QHBoxLayout()
         btn_cancel = QPushButton("Quay lại làm tiếp")
-        btn_cancel.setStyleSheet("background-color: #334155; color: white; border-radius: 6px; padding: 8px 16px;")
+        btn_cancel.setStyleSheet("background-color: #334155; color: white; border-radius: 6px; padding: 9px 18px;")
         btn_cancel.clicked.connect(self.reject)
 
         btn_confirm = QPushButton("XÁC NHẬN NỘP BÀI")
-        btn_confirm.setStyleSheet("background-color: #2563EB; color: white; font-weight: bold; border-radius: 6px; padding: 8px 20px;")
+        btn_confirm.setStyleSheet("background-color: #2563EB; color: white; font-weight: bold; border-radius: 6px; padding: 9px 24px;")
         btn_confirm.clicked.connect(self.accept)
 
         btn_layout.addWidget(btn_cancel)
@@ -97,14 +92,14 @@ class SubmissionConfirmationDialog(QDialog):
 
 class ExamScreen(QWidget):
     """
-    Screen 3: Main exam taking screen featuring:
-    - Left Question Palette (Done / Not Done / Mark for Review)
-    - Center scrollable exam question paper with auto-save
-    - Real-time Network widget with auto-reconnect background thread
-    - Right AI Proctoring video monitor
+    Screen 3: Main exam screen with:
+    - Left Question Palette
+    - Center scrollable questions with mouse-wheel pass-through
+    - Sticky bottom bar with Submit button always accessible
+    - Real-time Network widget & AI proctor feed
     """
 
-    exam_submitted = pyqtSignal(dict, str, str)  # (receipt_dict, server_sig, student_sig)
+    exam_submitted = pyqtSignal(dict, str, str)
     violation_occurred = pyqtSignal(str, str, bytes)
 
     def __init__(self, net_client: NetworkClient, student_id: str, student_name: str, parent=None):
@@ -120,7 +115,6 @@ class ExamScreen(QWidget):
         self.is_paused = False
         self.is_submitted = False
 
-        # Data structures for questions and UI widgets
         self.questions_data: list = []
         self.answers_widgets: Dict[int, QTextEdit] = {}
         self.review_checkboxes: Dict[int, QCheckBox] = {}
@@ -129,29 +123,26 @@ class ExamScreen(QWidget):
 
         self._init_ui()
 
-        # Local Auto-Save Timer (every 15 seconds)
+        # Timers
         self.auto_save_timer = QTimer(self)
         self.auto_save_timer.timeout.connect(self._auto_save_all)
         self.auto_save_timer.start(15000)
 
-        # Network Ping & Auto-Reconnect Watcher Timer (every 4 seconds)
         self.net_watch_timer = QTimer(self)
         self.net_watch_timer.timeout.connect(self._check_network_status)
         self.net_watch_timer.start(4000)
 
-        # Exam Countdown Timer (every 1 second)
         self.countdown_timer = QTimer(self)
         self.countdown_timer.timeout.connect(self._on_timer_tick)
 
-        # Load questions paper from server or fallback
-        QTimer.singleShot(200, self._load_exam_paper)
+        QTimer.singleShot(150, self._load_exam_paper)
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 12, 15, 12)
+        main_layout.setContentsMargins(15, 10, 15, 10)
         main_layout.setSpacing(10)
 
-        # TOP BAR
+        # 1. TOP HEADER BAR
         top_bar = QFrame()
         top_bar.setStyleSheet("""
             background-color: #1A2332;
@@ -161,47 +152,38 @@ class ExamScreen(QWidget):
         """)
         top_layout = QHBoxLayout(top_bar)
 
-        self.lbl_title = QLabel("KỲ THI CUỐI KỲ LẬP TRÌNH MẠNG")
+        self.lbl_title = QLabel("KỲ THI CUỐI KỲ LẬP TRÌNH MẠNG & AN TOÀN HỆ THỐNG")
         self.lbl_title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         self.lbl_title.setStyleSheet("color: #60A5FA;")
 
         self.lbl_candidate = QLabel(f"Thí sinh: <b>{self.student_name}</b> ({self.student_id})")
         self.lbl_candidate.setFont(QFont("Segoe UI", 10))
 
-        # Real-time Network Status Widget
-        self.lbl_net_widget = QLabel("🌐 Ping: 12ms [Ổn định]")
+        self.lbl_net_widget = QLabel("🌐 Ping: <50ms [Ổn định]")
         self.lbl_net_widget.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.lbl_net_widget.setStyleSheet("color: #10B981; background-color: #0F172A; padding: 4px 10px; border-radius: 6px;")
 
-        # Auto-save status label
-        self.lbl_autosave = QLabel("💾 Đã lưu nháp")
-        self.lbl_autosave.setFont(QFont("Segoe UI", 9))
-        self.lbl_autosave.setStyleSheet("color: #94A3B8;")
-
-        # Timer countdown
         self.lbl_countdown = QLabel("Thời gian: 60:00")
-        self.lbl_countdown.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
+        self.lbl_countdown.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
         self.lbl_countdown.setStyleSheet("color: #F59E0B;")
 
         top_layout.addWidget(self.lbl_title)
         top_layout.addStretch()
         top_layout.addWidget(self.lbl_candidate)
         top_layout.addSpacing(15)
-        top_layout.addWidget(self.lbl_autosave)
-        top_layout.addSpacing(15)
         top_layout.addWidget(self.lbl_net_widget)
         top_layout.addSpacing(15)
         top_layout.addWidget(self.lbl_countdown)
         main_layout.addWidget(top_bar)
 
-        # MAIN CONTENT (3 PANELS: Palette - Question Paper - Camera Proctor)
+        # 2. MIDDLE CONTENT (Question Palette | Scrollable Exam Paper | AI Monitor)
         content_layout = QHBoxLayout()
         content_layout.setSpacing(12)
 
-        # 1. LEFT PANEL: Question Palette
+        # LEFT PANEL: Question Palette
         palette_frame = QFrame()
         palette_frame.setFixedWidth(200)
-        palette_frame.setStyleSheet("background-color: #1A2332; border: 1px solid #2D3748; border-radius: 8px; padding: 8px;")
+        palette_frame.setStyleSheet("background-color: #1A2332; border: 1px solid #2D3748; border-radius: 8px; padding: 10px;")
         palette_layout = QVBoxLayout(palette_frame)
         palette_layout.setSpacing(8)
 
@@ -210,60 +192,71 @@ class ExamScreen(QWidget):
         lbl_palette_head.setStyleSheet("color: #E2E8F0;")
         palette_layout.addWidget(lbl_palette_head)
 
-        # Legend explanation
         legend_layout = QVBoxLayout()
-        legend_layout.setSpacing(4)
+        legend_layout.setSpacing(3)
         for text, color in [("✔ Đã làm", "#10B981"), ("- Chưa làm", "#64748B"), ("★ Xem lại", "#F59E0B")]:
             lbl = QLabel(text)
-            lbl.setFont(QFont("Segoe UI", 9))
+            lbl.setFont(QFont("Segoe UI", 8))
             lbl.setStyleSheet(f"color: {color};")
             legend_layout.addWidget(lbl)
         palette_layout.addLayout(legend_layout)
 
-        # Grid for question numbers
         palette_scroll = QScrollArea()
         palette_scroll.setWidgetResizable(True)
+        palette_scroll.setStyleSheet("border: none; background: transparent;")
         self.palette_container = QWidget()
         self.palette_grid = QGridLayout(self.palette_container)
         self.palette_grid.setSpacing(6)
         palette_scroll.setWidget(self.palette_container)
         palette_layout.addWidget(palette_scroll)
-
         content_layout.addWidget(palette_frame)
 
-        # 2. CENTER PANEL: Scrollable Exam Paper
+        # CENTER PANEL: Scrollable Exam Paper
         paper_frame = QFrame()
-        paper_frame.setStyleSheet("background-color: #121820; border: 1px solid #2D3748; border-radius: 8px;")
+        paper_frame.setStyleSheet("""
+            background-color: #121820;
+            border: 1px solid #2D3748;
+            border-radius: 8px;
+        """)
         paper_layout = QVBoxLayout(paper_frame)
-        paper_layout.setContentsMargins(10, 10, 10, 10)
+        paper_layout.setContentsMargins(6, 6, 6, 6)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: #121820;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background-color: #1E293B;
+                width: 12px;
+                border-radius: 6px;
+                margin: 2px 2px 2px 2px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #3B82F6;
+                border-radius: 5px;
+                min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #60A5FA;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
+            }
+        """)
+
         self.questions_container = QWidget()
         self.questions_layout = QVBoxLayout(self.questions_container)
-        self.questions_layout.setSpacing(14)
+        self.questions_layout.setContentsMargins(10, 10, 10, 10)
+        self.questions_layout.setSpacing(16)
         self.scroll_area.setWidget(self.questions_container)
         paper_layout.addWidget(self.scroll_area)
-
-        # Submit Button
-        btn_bar = QHBoxLayout()
-        self.btn_submit = QPushButton("📝 NỘP BÀI THI & XÁC NHẬN CHỮ KÝ SỐ RSA")
-        self.btn_submit.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        self.btn_submit.setStyleSheet("""
-            QPushButton {
-                background-color: #2563EB; color: white; border-radius: 8px; padding: 12px 24px;
-            }
-            QPushButton:hover { background-color: #1D4ED8; }
-            QPushButton:disabled { background-color: #475569; color: #94A3B8; }
-        """)
-        self.btn_submit.clicked.connect(self._prompt_submit_confirmation)
-        btn_bar.addStretch()
-        btn_bar.addWidget(self.btn_submit)
-        paper_layout.addLayout(btn_bar)
-
         content_layout.addWidget(paper_frame, 3)
 
-        # 3. RIGHT PANEL: AI Proctor Video Preview & Security telemetry
+        # RIGHT PANEL: AI Proctor Monitor
         proctor_frame = QFrame()
         proctor_frame.setFixedWidth(290)
         proctor_frame.setStyleSheet("background-color: #1A2332; border: 1px solid #2D3748; border-radius: 8px; padding: 10px;")
@@ -275,20 +268,17 @@ class ExamScreen(QWidget):
         lbl_proctor_head.setStyleSheet("color: #60A5FA;")
         proctor_layout.addWidget(lbl_proctor_head)
 
-        # Camera preview
-        self.lbl_camera = QLabel("Đang mở camera...")
+        self.lbl_camera = QLabel()
         self.lbl_camera.setFixedSize(270, 200)
         self.lbl_camera.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_camera.setStyleSheet("background-color: #0D1117; border: 2px solid #3B82F6; border-radius: 6px;")
         proctor_layout.addWidget(self.lbl_camera)
 
-        # Telemetry stats
         self.lbl_telemetry = QLabel("Góc đầu: Yaw 0.0° | Pitch 0.0°\nKhuôn mặt: 1 | Trạng thái: An toàn")
         self.lbl_telemetry.setFont(QFont("Consolas", 9))
         self.lbl_telemetry.setStyleSheet("color: #E2E8F0; background-color: #0F172A; padding: 6px; border-radius: 4px;")
         proctor_layout.addWidget(self.lbl_telemetry)
 
-        # Violation log
         lbl_v_title = QLabel("NHẬT KÝ CẢNH BÁO VI PHẠM:")
         lbl_v_title.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         proctor_layout.addWidget(lbl_v_title)
@@ -297,19 +287,54 @@ class ExamScreen(QWidget):
         self.txt_violation_log.setReadOnly(True)
         self.txt_violation_log.setFont(QFont("Consolas", 8))
         self.txt_violation_log.setStyleSheet("background-color: #0F172A; color: #F87171; border: 1px solid #334155; border-radius: 4px;")
-        self.txt_violation_log.setMaximumHeight(160)
+        self.txt_violation_log.setMaximumHeight(150)
         proctor_layout.addWidget(self.txt_violation_log)
 
         proctor_layout.addStretch()
         content_layout.addWidget(proctor_frame)
-
         main_layout.addLayout(content_layout)
 
+        # 3. STICKY BOTTOM ACTION BAR (ALWAYS VISIBLE - NEVER HIDDEN)
+        bottom_bar = QFrame()
+        bottom_bar.setStyleSheet("""
+            background-color: #1A2332;
+            border: 1px solid #2D3748;
+            border-radius: 8px;
+            padding: 10px 18px;
+        """)
+        bottom_layout = QHBoxLayout(bottom_bar)
+
+        self.lbl_autosave = QLabel("💾 Tự động lưu: Sẵn sàng")
+        self.lbl_autosave.setFont(QFont("Segoe UI", 10))
+        self.lbl_autosave.setStyleSheet("color: #94A3B8;")
+
+        self.lbl_progress = QLabel("Đã trả lời: 0/3 câu")
+        self.lbl_progress.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        self.lbl_progress.setStyleSheet("color: #60A5FA;")
+
+        self.btn_submit = QPushButton("📝 NỘP BÀI THI & XÁC NHẬN CHỮ KÝ SỐ RSA")
+        self.btn_submit.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
+        self.btn_submit.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_submit.setStyleSheet("""
+            QPushButton {
+                background-color: #2563EB; color: white; border-radius: 8px; padding: 10px 28px;
+            }
+            QPushButton:hover { background-color: #1D4ED8; }
+            QPushButton:disabled { background-color: #475569; color: #94A3B8; }
+        """)
+        self.btn_submit.clicked.connect(self._prompt_submit_confirmation)
+
+        bottom_layout.addWidget(self.lbl_autosave)
+        bottom_layout.addSpacing(25)
+        bottom_layout.addWidget(self.lbl_progress)
+        bottom_layout.addStretch()
+        bottom_layout.addWidget(self.btn_submit)
+
+        main_layout.addWidget(bottom_bar)
+
     def _load_exam_paper(self) -> None:
-        """Fetches questions from server or loads defaults and restores local drafts."""
         paper = self.net_client.request_exam_paper()
         if not paper or "questions" not in paper:
-            # Fallback nominal questions
             paper = {
                 "exam_id": "LTM_2026_FINAL",
                 "title": "Kỳ thi Cuối kỳ Lập trình Mạng & An toàn Hệ thống",
@@ -338,14 +363,11 @@ class ExamScreen(QWidget):
         self.questions_data = paper.get("questions", [])
         self.time_remaining_seconds = paper.get("duration_minutes", 60) * 60
 
-        # Load any saved local drafts
         cached_drafts = self.storage.load_drafts(self.student_id, self.exam_id)
-
-        # Populate UI
         self._build_questions_ui(cached_drafts)
         self._build_palette_ui(cached_drafts)
+        self._update_progress_label()
 
-        # Unlock exam & start timer
         self.is_exam_active = True
         self.countdown_timer.start(1000)
 
@@ -358,9 +380,10 @@ class ExamScreen(QWidget):
                 background-color: #1E293B;
                 border: 1px solid #334155;
                 border-radius: 8px;
-                padding: 12px;
+                padding: 14px;
             """)
             layout = QVBoxLayout(box)
+            layout.setSpacing(10)
 
             q_title = QLabel(f"<b>Câu {q_id}:</b> {q['question']}")
             q_title.setWordWrap(True)
@@ -368,21 +391,27 @@ class ExamScreen(QWidget):
             q_title.setStyleSheet("color: #F8FAFC;")
             layout.addWidget(q_title)
 
-            # Answer input
             ans_input = QTextEdit()
             ans_input.setPlaceholderText("Nhập câu trả lời của bạn tại đây...")
             ans_input.setFont(QFont("Segoe UI", 10))
-            ans_input.setStyleSheet("background-color: #0F172A; border: 1px solid #334155; border-radius: 6px; color: white; padding: 8px;")
-            ans_input.setMinimumHeight(130)
+            ans_input.setStyleSheet("""
+                background-color: #0F172A;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                color: white;
+                padding: 8px;
+            """)
+            ans_input.setMinimumHeight(140)
 
-            # Restore cached answer if exists
+            # Event filter to forward mouse wheel scrolling to parent scroll area smoothly
+            ans_input.installEventFilter(self)
+
             if q_id in cached_drafts:
                 ans_input.setPlainText(cached_drafts[q_id].get("answer_text", ""))
 
             ans_input.textChanged.connect(lambda qid=q_id: self._on_answer_changed(qid))
             layout.addWidget(ans_input)
 
-            # Review Checkbox
             chk_review = QCheckBox("★ Đánh dấu câu này để xem lại sau")
             chk_review.setFont(QFont("Segoe UI", 9))
             chk_review.setStyleSheet("color: #F59E0B;")
@@ -398,6 +427,13 @@ class ExamScreen(QWidget):
 
         self.questions_layout.addStretch()
 
+    def eventFilter(self, obj, event: QEvent) -> bool:
+        """Passes wheel events from QTextEdit to QScrollArea so page scrolls smoothly."""
+        if event.type() == QEvent.Type.Wheel and isinstance(obj, QTextEdit):
+            self.scroll_area.wheelEvent(event)
+            return True
+        return super().eventFilter(obj, event)
+
     def _build_palette_ui(self, cached_drafts: dict) -> None:
         cols = 3
         for idx, q in enumerate(self.questions_data):
@@ -405,9 +441,9 @@ class ExamScreen(QWidget):
             btn = QPushButton(f"Câu {q_id}")
             btn.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
             btn.setFixedSize(50, 40)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda _, qid=q_id: self._scroll_to_question(qid))
 
-            # Determine initial status
             status = "NOT_DONE"
             if q_id in cached_drafts:
                 status = cached_drafts[q_id].get("status", "NOT_DONE")
@@ -419,25 +455,18 @@ class ExamScreen(QWidget):
             self.palette_grid.addWidget(btn, idx // cols, idx % cols)
 
     def _scroll_to_question(self, q_id: int) -> None:
-        """Smoothly scrolls the view to the selected question."""
         if q_id in self.question_frames:
-            target_widget = self.question_frames[q_id]
-            self.scroll_area.ensureWidgetVisible(target_widget)
+            target = self.question_frames[q_id]
+            self.scroll_area.ensureWidgetVisible(target, 0, 50)
 
     def _on_answer_changed(self, q_id: int) -> None:
-        """Triggered on keystroke: updates palette and triggers auto-save."""
         text = self.answers_widgets[q_id].toPlainText().strip()
         is_review = self.review_checkboxes[q_id].isChecked()
-
-        if is_review:
-            new_status = "REVIEW"
-        elif text:
-            new_status = "DONE"
-        else:
-            new_status = "NOT_DONE"
+        status = "REVIEW" if is_review else ("DONE" if text else "NOT_DONE")
 
         if q_id in self.palette_buttons:
-            self._set_palette_btn_style(self.palette_buttons[q_id], new_status)
+            self._set_palette_btn_style(self.palette_buttons[q_id], status)
+        self._update_progress_label()
 
     def _on_review_toggled(self, q_id: int, checked: bool) -> None:
         text = self.answers_widgets[q_id].toPlainText().strip()
@@ -453,8 +482,12 @@ class ExamScreen(QWidget):
         else:
             btn.setStyleSheet("background-color: #334155; color: #94A3B8; border-radius: 6px; border: 1px solid #475569;")
 
+    def _update_progress_label(self) -> None:
+        total = len(self.questions_data)
+        done = sum(1 for w in self.answers_widgets.values() if w.toPlainText().strip())
+        self.lbl_progress.setText(f"Đã trả lời: {done}/{total} câu")
+
     def _auto_save_all(self) -> None:
-        """Persists all answers and review statuses to local SQLite database."""
         answers = {qid: w.toPlainText() for qid, w in self.answers_widgets.items()}
         statuses = {}
         for qid in answers:
@@ -470,14 +503,12 @@ class ExamScreen(QWidget):
         self.lbl_autosave.setText(f"💾 Tự động lưu: {time_str}")
 
     def _check_network_status(self) -> None:
-        """Monitors network socket status and triggers background auto-reconnect if dropped."""
         if self.net_client and self.net_client.is_connected:
             self.lbl_net_widget.setText("🌐 Ping: <50ms [Ổn định]")
             self.lbl_net_widget.setStyleSheet("color: #10B981; background-color: #0F172A; padding: 4px 10px; border-radius: 6px;")
         else:
-            self.lbl_net_widget.setText("⚠️ Rớt mạng: Đang thử kết nối lại...")
+            self.lbl_net_widget.setText("⚠️ Rớt mạng: Đang kết nối lại...")
             self.lbl_net_widget.setStyleSheet("color: #EF4444; background-color: #0F172A; padding: 4px 10px; border-radius: 6px;")
-            # Attempt non-blocking reconnect
             QTimer.singleShot(100, self._attempt_reconnect)
 
     def _attempt_reconnect(self) -> None:
@@ -497,6 +528,7 @@ class ExamScreen(QWidget):
             self._execute_submit_exam()
 
     def update_camera_frame(self, q_image: QImage) -> None:
+        """Paints real-time video frame to preview label."""
         pixmap = QPixmap.fromImage(q_image)
         scaled = pixmap.scaled(
             self.lbl_camera.size(),
@@ -517,7 +549,6 @@ class ExamScreen(QWidget):
         self.txt_violation_log.append(f"[{ts}] {text}")
 
     def _prompt_submit_confirmation(self) -> None:
-        """Opens modal review dialog displaying completion counts."""
         total = len(self.questions_data)
         done = 0
         not_done = 0
@@ -544,18 +575,13 @@ class ExamScreen(QWidget):
         self.countdown_timer.stop()
         self.btn_submit.setEnabled(False)
 
-        # Collect student answers
         answers = {qid: w.toPlainText() for qid, w in self.answers_widgets.items()}
-
-        # Final auto-save
         self._auto_save_all()
 
-        # Submit to server with digital signature
-        self.log_violation("Đang ký số RSA 2048-bit và nộp bài thi lên server...")
+        self.log_violation("Đang ký số RSA 2048-bit và nộp bài lên máy chủ...")
         res = self.net_client.submit_exam_paper(self.exam_id, answers)
 
         if res.get("success"):
-            # Clear local drafts upon confirmed server receipt
             self.storage.clear_drafts(self.student_id, self.exam_id)
             receipt = res.get("receipt", {})
             server_sig = res.get("server_signature", "")
