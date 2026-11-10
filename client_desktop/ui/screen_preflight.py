@@ -136,7 +136,7 @@ class PreflightScreen(QWidget):
     def _create_diag_row(self, layout: QVBoxLayout, title: str, init_val: str) -> QLabel:
         row = QHBoxLayout()
         lbl_name = QLabel(title)
-        lbl_name.setFont(QFont("Segoe UI", 11, QFont.Weight.SemiBold))
+        lbl_name.setFont(QFont("Segoe UI", 11, QFont.Weight.DemiBold))
         lbl_name.setStyleSheet("color: #E2E8F0;")
         lbl_name.setFixedWidth(280)
 

@@ -99,7 +99,7 @@ class BiometricLoginScreen(QWidget):
 
         # Status and Action Button
         self.lbl_status = QLabel("Trạng thái: Sẵn sàng so khớp khuôn mặt.")
-        self.lbl_status.setFont(QFont("Segoe UI", 10, QFont.Weight.SemiBold))
+        self.lbl_status.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         self.lbl_status.setStyleSheet("color: #F59E0B;")
         left_layout.addWidget(self.lbl_status)
 
@@ -139,7 +139,7 @@ class BiometricLoginScreen(QWidget):
         cam_inner.addWidget(self.lbl_camera_feed)
 
         lbl_guide_overlay = QLabel("🎯 Căn chỉnh khuôn mặt chính diện vào khung hình")
-        lbl_guide_overlay.setFont(QFont("Segoe UI", 10, QFont.Weight.SemiBold))
+        lbl_guide_overlay.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         lbl_guide_overlay.setStyleSheet("color: #60A5FA; margin-top: 8px;")
         lbl_guide_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         cam_inner.addWidget(lbl_guide_overlay)

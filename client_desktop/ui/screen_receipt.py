@@ -134,7 +134,7 @@ class SubmissionReceiptScreen(QWidget):
     def _add_field(self, layout: QVBoxLayout, label_text: str, default_val: str) -> QLabel:
         box = QVBoxLayout()
         lbl = QLabel(label_text)
-        lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.SemiBold))
+        lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         lbl.setStyleSheet("color: #94A3B8;")
 
         val = QLabel(default_val)
