@@ -71,15 +71,15 @@ class PreflightScreen(QWidget):
         card = QFrame()
         card.setObjectName("PreflightCard")
         card.setStyleSheet("""
-            #PreflightCard {
+            QFrame#PreflightCard {
                 background-color: #1E293B;
                 border: 1px solid #334155;
                 border-radius: 12px;
-                padding: 20px;
             }
         """)
         card_layout = QVBoxLayout(card)
-        card_layout.setSpacing(14)
+        card_layout.setContentsMargins(24, 18, 24, 18)
+        card_layout.setSpacing(12)
 
         # 1. Camera Item
         self.lbl_cam_status = self._create_diag_row(card_layout, "📷 Webcam Giám sát:", "Đang kiểm tra...")

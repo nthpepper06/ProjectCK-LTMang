@@ -65,6 +65,7 @@ class ExamMainWindow(QWidget):
 
         # 2. Setup Kiosk Mode Window Flags
         self.setWindowTitle("Secure Online Examination Platform - Production Kiosk Mode")
+        self.setMinimumSize(960, 560)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint

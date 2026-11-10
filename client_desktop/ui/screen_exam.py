@@ -138,22 +138,27 @@ class ExamScreen(QWidget):
         QTimer.singleShot(150, self._load_exam_paper)
 
     def _init_ui(self) -> None:
+        self.setMinimumSize(900, 520)
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(15, 10, 15, 10)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(14, 8, 14, 8)
+        main_layout.setSpacing(8)
 
         # 1. TOP HEADER BAR
         top_bar = QFrame()
+        top_bar.setObjectName("ExamTopBar")
+        top_bar.setFixedHeight(50)
         top_bar.setStyleSheet("""
-            background-color: #1A2332;
-            border: 1px solid #2D3748;
-            border-radius: 8px;
-            padding: 8px 14px;
+            QFrame#ExamTopBar {
+                background-color: #1A2332;
+                border: 1px solid #2D3748;
+                border-radius: 8px;
+            }
         """)
         top_layout = QHBoxLayout(top_bar)
+        top_layout.setContentsMargins(14, 6, 14, 6)
 
         self.lbl_title = QLabel("KỲ THI CUỐI KỲ LẬP TRÌNH MẠNG & AN TOÀN HỆ THỐNG")
-        self.lbl_title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        self.lbl_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         self.lbl_title.setStyleSheet("color: #60A5FA;")
 
         self.lbl_candidate = QLabel(f"Thí sinh: <b>{self.student_name}</b> ({self.student_id})")
@@ -164,7 +169,7 @@ class ExamScreen(QWidget):
         self.lbl_net_widget.setStyleSheet("color: #10B981; background-color: #0F172A; padding: 4px 10px; border-radius: 6px;")
 
         self.lbl_countdown = QLabel("Thời gian: 60:00")
-        self.lbl_countdown.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        self.lbl_countdown.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
         self.lbl_countdown.setStyleSheet("color: #F59E0B;")
 
         top_layout.addWidget(self.lbl_title)
@@ -178,13 +183,21 @@ class ExamScreen(QWidget):
 
         # 2. MIDDLE CONTENT (Question Palette | Scrollable Exam Paper | AI Monitor)
         content_layout = QHBoxLayout()
-        content_layout.setSpacing(12)
+        content_layout.setSpacing(10)
 
         # LEFT PANEL: Question Palette
         palette_frame = QFrame()
-        palette_frame.setFixedWidth(200)
-        palette_frame.setStyleSheet("background-color: #1A2332; border: 1px solid #2D3748; border-radius: 8px; padding: 10px;")
+        palette_frame.setObjectName("ExamPaletteFrame")
+        palette_frame.setFixedWidth(210)
+        palette_frame.setStyleSheet("""
+            QFrame#ExamPaletteFrame {
+                background-color: #1A2332;
+                border: 1px solid #2D3748;
+                border-radius: 8px;
+            }
+        """)
         palette_layout = QVBoxLayout(palette_frame)
+        palette_layout.setContentsMargins(10, 10, 10, 10)
         palette_layout.setSpacing(8)
 
         lbl_palette_head = QLabel("BẢNG CÂU HỎI")
@@ -206,6 +219,7 @@ class ExamScreen(QWidget):
         palette_scroll.setStyleSheet("border: none; background: transparent;")
         self.palette_container = QWidget()
         self.palette_grid = QGridLayout(self.palette_container)
+        self.palette_grid.setContentsMargins(2, 2, 2, 2)
         self.palette_grid.setSpacing(6)
         palette_scroll.setWidget(self.palette_container)
         palette_layout.addWidget(palette_scroll)
@@ -213,16 +227,21 @@ class ExamScreen(QWidget):
 
         # CENTER PANEL: Scrollable Exam Paper
         paper_frame = QFrame()
+        paper_frame.setObjectName("ExamPaperFrame")
         paper_frame.setStyleSheet("""
-            background-color: #121820;
-            border: 1px solid #2D3748;
-            border-radius: 8px;
+            QFrame#ExamPaperFrame {
+                background-color: #121820;
+                border: 1px solid #2D3748;
+                border-radius: 8px;
+            }
         """)
         paper_layout = QVBoxLayout(paper_frame)
         paper_layout.setContentsMargins(6, 6, 6, 6)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll_area.setStyleSheet("""
             QScrollArea {
                 border: none;
@@ -251,16 +270,24 @@ class ExamScreen(QWidget):
         self.questions_container = QWidget()
         self.questions_layout = QVBoxLayout(self.questions_container)
         self.questions_layout.setContentsMargins(10, 10, 10, 10)
-        self.questions_layout.setSpacing(16)
+        self.questions_layout.setSpacing(14)
         self.scroll_area.setWidget(self.questions_container)
         paper_layout.addWidget(self.scroll_area)
         content_layout.addWidget(paper_frame, 3)
 
         # RIGHT PANEL: AI Proctor Monitor
         proctor_frame = QFrame()
-        proctor_frame.setFixedWidth(290)
-        proctor_frame.setStyleSheet("background-color: #1A2332; border: 1px solid #2D3748; border-radius: 8px; padding: 10px;")
+        proctor_frame.setObjectName("ExamProctorFrame")
+        proctor_frame.setFixedWidth(280)
+        proctor_frame.setStyleSheet("""
+            QFrame#ExamProctorFrame {
+                background-color: #1A2332;
+                border: 1px solid #2D3748;
+                border-radius: 8px;
+            }
+        """)
         proctor_layout = QVBoxLayout(proctor_frame)
+        proctor_layout.setContentsMargins(10, 10, 10, 10)
         proctor_layout.setSpacing(8)
 
         lbl_proctor_head = QLabel("GIÁM SÁT AI REAL-TIME")
@@ -269,13 +296,13 @@ class ExamScreen(QWidget):
         proctor_layout.addWidget(lbl_proctor_head)
 
         self.lbl_camera = QLabel()
-        self.lbl_camera.setFixedSize(270, 200)
+        self.lbl_camera.setFixedSize(260, 180)
         self.lbl_camera.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_camera.setStyleSheet("background-color: #0D1117; border: 2px solid #3B82F6; border-radius: 6px;")
         proctor_layout.addWidget(self.lbl_camera)
 
         self.lbl_telemetry = QLabel("Góc đầu: Yaw 0.0° | Pitch 0.0°\nKhuôn mặt: 1 | Trạng thái: An toàn")
-        self.lbl_telemetry.setFont(QFont("Consolas", 9))
+        self.lbl_telemetry.setFont(QFont("Consolas", 8))
         self.lbl_telemetry.setStyleSheet("color: #E2E8F0; background-color: #0F172A; padding: 6px; border-radius: 4px;")
         proctor_layout.addWidget(self.lbl_telemetry)
 
@@ -287,22 +314,26 @@ class ExamScreen(QWidget):
         self.txt_violation_log.setReadOnly(True)
         self.txt_violation_log.setFont(QFont("Consolas", 8))
         self.txt_violation_log.setStyleSheet("background-color: #0F172A; color: #F87171; border: 1px solid #334155; border-radius: 4px;")
-        self.txt_violation_log.setMaximumHeight(150)
+        self.txt_violation_log.setMaximumHeight(130)
         proctor_layout.addWidget(self.txt_violation_log)
 
         proctor_layout.addStretch()
         content_layout.addWidget(proctor_frame)
-        main_layout.addLayout(content_layout)
+        main_layout.addLayout(content_layout, 1)
 
         # 3. STICKY BOTTOM ACTION BAR (ALWAYS VISIBLE - NEVER HIDDEN)
         bottom_bar = QFrame()
+        bottom_bar.setObjectName("ExamBottomBar")
+        bottom_bar.setFixedHeight(56)
         bottom_bar.setStyleSheet("""
-            background-color: #1A2332;
-            border: 1px solid #2D3748;
-            border-radius: 8px;
-            padding: 10px 18px;
+            QFrame#ExamBottomBar {
+                background-color: #1A2332;
+                border: 1px solid #2D3748;
+                border-radius: 8px;
+            }
         """)
         bottom_layout = QHBoxLayout(bottom_bar)
+        bottom_layout.setContentsMargins(16, 8, 16, 8)
 
         self.lbl_autosave = QLabel("💾 Tự động lưu: Sẵn sàng")
         self.lbl_autosave.setFont(QFont("Segoe UI", 10))
@@ -317,7 +348,7 @@ class ExamScreen(QWidget):
         self.btn_submit.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_submit.setStyleSheet("""
             QPushButton {
-                background-color: #2563EB; color: white; border-radius: 8px; padding: 10px 28px;
+                background-color: #2563EB; color: white; border-radius: 8px; padding: 9px 24px;
             }
             QPushButton:hover { background-color: #1D4ED8; }
             QPushButton:disabled { background-color: #475569; color: #94A3B8; }
@@ -376,13 +407,15 @@ class ExamScreen(QWidget):
             q_id = q["id"]
             box = QFrame()
             box.setObjectName(f"QuestionBox_{q_id}")
-            box.setStyleSheet("""
-                background-color: #1E293B;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 14px;
+            box.setStyleSheet(f"""
+                QFrame#QuestionBox_{q_id} {{
+                    background-color: #1E293B;
+                    border: 1px solid #334155;
+                    border-radius: 8px;
+                }}
             """)
             layout = QVBoxLayout(box)
+            layout.setContentsMargins(14, 14, 14, 14)
             layout.setSpacing(10)
 
             q_title = QLabel(f"<b>Câu {q_id}:</b> {q['question']}")
@@ -395,13 +428,16 @@ class ExamScreen(QWidget):
             ans_input.setPlaceholderText("Nhập câu trả lời của bạn tại đây...")
             ans_input.setFont(QFont("Segoe UI", 10))
             ans_input.setStyleSheet("""
-                background-color: #0F172A;
-                border: 1px solid #334155;
-                border-radius: 6px;
-                color: white;
-                padding: 8px;
+                QTextEdit {
+                    background-color: #0F172A;
+                    border: 1px solid #334155;
+                    border-radius: 6px;
+                    color: white;
+                    padding: 8px;
+                }
             """)
-            ans_input.setMinimumHeight(140)
+            ans_input.setMinimumHeight(130)
+            ans_input.setMaximumHeight(260)
 
             # Event filter to forward mouse wheel scrolling to parent scroll area smoothly
             ans_input.installEventFilter(self)
@@ -425,22 +461,27 @@ class ExamScreen(QWidget):
             self.question_frames[q_id] = box
             self.questions_layout.addWidget(box)
 
+        # Bottom padding space inside the scroll container so Question 3 scrolls completely clear
+        self.questions_layout.addSpacing(30)
         self.questions_layout.addStretch()
 
     def eventFilter(self, obj, event: QEvent) -> bool:
         """Passes wheel events from QTextEdit to QScrollArea so page scrolls smoothly."""
         if event.type() == QEvent.Type.Wheel and isinstance(obj, QTextEdit):
-            self.scroll_area.wheelEvent(event)
-            return True
+            delta = event.angleDelta().y()
+            if delta != 0:
+                vbar = self.scroll_area.verticalScrollBar()
+                vbar.setValue(vbar.value() - int(delta * 0.8))
+                return True
         return super().eventFilter(obj, event)
 
     def _build_palette_ui(self, cached_drafts: dict) -> None:
-        cols = 3
+        cols = 2
         for idx, q in enumerate(self.questions_data):
             q_id = q["id"]
             btn = QPushButton(f"Câu {q_id}")
             btn.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
-            btn.setFixedSize(50, 40)
+            btn.setFixedSize(85, 38)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda _, qid=q_id: self._scroll_to_question(qid))
 
@@ -457,7 +498,8 @@ class ExamScreen(QWidget):
     def _scroll_to_question(self, q_id: int) -> None:
         if q_id in self.question_frames:
             target = self.question_frames[q_id]
-            self.scroll_area.ensureWidgetVisible(target, 0, 50)
+            vbar = self.scroll_area.verticalScrollBar()
+            vbar.setValue(target.pos().y())
 
     def _on_answer_changed(self, q_id: int) -> None:
         text = self.answers_widgets[q_id].toPlainText().strip()

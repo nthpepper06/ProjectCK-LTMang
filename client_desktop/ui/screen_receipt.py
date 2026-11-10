@@ -44,12 +44,12 @@ class SubmissionReceiptScreen(QWidget):
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(60, 40, 60, 40)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(40, 20, 40, 20)
+        main_layout.setSpacing(12)
 
         # Header Badge
         lbl_head = QLabel("🎉 BÀI THI ĐÃ NỘP THÀNH CÔNG VÀ XÁC THỰC CHỮ KÝ SỐ")
-        lbl_head.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
+        lbl_head.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
         lbl_head.setStyleSheet("color: #10B981;")
         lbl_head.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(lbl_head)
@@ -62,18 +62,21 @@ class SubmissionReceiptScreen(QWidget):
 
         # Content Card with 2 columns: Audit Details (Left) + QR Code (Right)
         card = QFrame()
+        card.setObjectName("ReceiptCard")
         card.setStyleSheet("""
-            background-color: #1E293B;
-            border: 1px solid #334155;
-            border-radius: 14px;
-            padding: 24px;
+            QFrame#ReceiptCard {
+                background-color: #1E293B;
+                border: 1px solid #334155;
+                border-radius: 12px;
+            }
         """)
         card_layout = QHBoxLayout(card)
-        card_layout.setSpacing(30)
+        card_layout.setContentsMargins(24, 16, 24, 16)
+        card_layout.setSpacing(25)
 
         # LEFT: Metadata Fields
         meta_layout = QVBoxLayout()
-        meta_layout.setSpacing(12)
+        meta_layout.setSpacing(8)
 
         self.lbl_receipt_id = self._add_field(meta_layout, "Mã Biên nhận (Receipt ID):", "Đang cập nhật...")
         self.lbl_student = self._add_field(meta_layout, "Thí sinh:", "Đang cập nhật...")
@@ -89,7 +92,7 @@ class SubmissionReceiptScreen(QWidget):
         # RIGHT: QR Code Viewer
         qr_layout = QVBoxLayout()
         qr_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        qr_layout.setSpacing(10)
+        qr_layout.setSpacing(8)
 
         lbl_qr_title = QLabel("MÃ QR ĐỐI CHIẾU")
         lbl_qr_title.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
@@ -98,9 +101,9 @@ class SubmissionReceiptScreen(QWidget):
         qr_layout.addWidget(lbl_qr_title)
 
         self.lbl_qr_img = QLabel()
-        self.lbl_qr_img.setFixedSize(220, 220)
+        self.lbl_qr_img.setFixedSize(180, 180)
         self.lbl_qr_img.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_qr_img.setStyleSheet("background-color: white; border-radius: 8px; padding: 10px;")
+        self.lbl_qr_img.setStyleSheet("background-color: white; border-radius: 8px; padding: 6px;")
         qr_layout.addWidget(self.lbl_qr_img)
 
         lbl_qr_tip = QLabel("Quét mã để kiểm tra tính toàn vẹn và chữ ký điện tử trên cổng khảo thí.")
@@ -118,10 +121,10 @@ class SubmissionReceiptScreen(QWidget):
         btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.btn_exit = QPushButton("HOÀN TẤT & ĐÓNG ỨNG DỤNG")
-        self.btn_exit.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        self.btn_exit.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
         self.btn_exit.setStyleSheet("""
             QPushButton {
-                background-color: #10B981; color: white; border-radius: 8px; padding: 12px 36px;
+                background-color: #10B981; color: white; border-radius: 8px; padding: 10px 32px;
             }
             QPushButton:hover { background-color: #059669; }
         """)
