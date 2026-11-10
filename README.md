@@ -85,74 +85,117 @@ pip install -r requirements.txt
 
 ---
 
-## 🎮 4. Hướng dẫn Chạy & Demo Hệ thống
+## 🎮 4. Hướng dẫn Khởi chạy Hệ thống Đồng thời 3 Thành phần
 
-### Bước 1: Chạy kiểm thử tự động toàn diện (Automated Integration Tests)
-```powershell
-python tests\test_integration.py
-```
-*Kết quả mong đợi: Toàn bộ 4 test suites (Mật mã & Framing, SQLite Auto-save & Watchdog, TCP Lifecycle, UDP Multicast) đều đạt `PASSED`.*
+Hệ thống được thiết kế theo kiến trúc phân tán hiện đại, giám thị và thí sinh có thể vận hành đồng thời trên 3 thành phần chính:
 
-### Bước 2: Khởi động TCP Examination Server
-Mở terminal thứ nhất:
+### Bước 1: Khởi động Máy chủ Tích hợp (TCP Core + Web Bridge + WebSocket)
+Mở Terminal thứ nhất và chạy:
 ```powershell
 python server\tcp_server.py
 ```
-
-### Bước 3: Khởi động Ứng dụng thi Kiosk Client
-Mở terminal thứ hai:
-```powershell
-python client_desktop\main_window.py
-```
-*Trình tự trải nghiệm:*
-1. Màn hình 1: Bấm kiểm tra phần cứng & ping server. Đạt chuẩn -> Bấm **Tiếp tục**.
-2. Màn hình 2: Nhập MSSV, căn mặt trước webcam và bấm **So khớp khuôn mặt**.
-3. Màn hình 3: Làm bài thi, thử click câu hỏi trên bảng Question Palette, quan sát trạng thái lưu nháp SQLite và camera AI tracking góc đầu.
-4. Bấm **Nộp bài thi** -> Xem bảng thống kê -> Xác nhận nộp bài kèm chữ ký số RSA.
-5. Màn hình 4: Nhận biên nhận điện tử và mã QR tra cứu.
-
-### Bước 4: Giám thị phát lệnh đồng loạt qua UDP Multicast
-Mở terminal thứ ba:
-```powershell
-python server\multicast_sender.py
-```
-*Chọn các phím số từ `1` đến `5` để phát lệnh Bắt đầu thi, Tạm dừng hoặc Thu bài đồng loạt cho tất cả các máy thí sinh đang chạy.*
+*Các cổng dịch vụ tự động kích hoạt:*
+* **Cổng TCP `8888`:** Lắng nghe kết nối an toàn từ Desktop Kiosk Client của thí sinh.
+* **Cổng HTTP `8080`:** Cung cấp Proctor Web Dashboard & REST APIs cho Giám thị.
+* **Cổng WebSocket `8081`:** Đẩy thông báo vi phạm AI, nhịp tim và trạng thái thi theo thời gian thực.
 
 ---
 
-## 📂 5. Cấu trúc Mã nguồn Chi tiết
+### Bước 2: Mở Giao diện Giám thị Trung tâm (Proctor Web Dashboard)
+Mở trình duyệt Web (Chrome, Edge, Firefox, Cốc Cốc) và truy cập:
+👉 **[http://localhost:8080](http://localhost:8080)**
+
+*Các tính năng giám thị trực tiếp:*
+1. **Theo dõi thời gian thực (Live AI Violation Feed):** Xem ảnh webcam snapshot của thí sinh vi phạm, góc quay đầu Yaw/Pitch, và phóng to ảnh bằng chứng (Lightbox Modal).
+2. **Quản lý danh sách phiên thi:** Xem tình trạng thí sinh kết nối, trạng thái làm bài, độ trễ nhịp tim (Heartbeat).
+3. **Đối soát Chữ ký số RSA:** Kiểm tra mã băm SHA-256 bài thi và biên lai countersignature có chữ ký số của Server.
+4. **Điều khiển phòng thi (UDP Multicast `224.1.1.1:5005`):** Bấm các nút **[Bắt Đầu Thi]**, **[Tạm Dừng Khẩn Cấp]**, **[Tiếp Tục]**, **[Thu Bài Đồng Loạt]**, hoặc phát thanh thông báo tức thì tới toàn bộ máy thi.
+
+---
+
+### Bước 3: Khởi động Ứng dụng Thi Kiosk Client của Thí sinh
+Mở Terminal thứ hai và chạy:
+```powershell
+python client_desktop\main_window.py
+```
+*Trình tự 4 màn hình Kiosk:*
+1. **Màn hình 1 (Pre-flight):** Kiểm tra camera HD, microphone, đo ping tới Server, kiểm tra pin và phát hiện màn hình phụ. Đạt chuẩn $\to$ Bấm **Tiếp tục**.
+2. **Màn hình 2 (Sinh trắc học):** Nhập MSSV (`SV2026_01` hoặc `SV2026_02`), căn khung khuôn mặt trước webcam và bấm **So khớp khuôn mặt** để nhận Session Token.
+3. **Màn hình 3 (Làm bài thi Kiosk):**
+   - Làm bài với bộ câu hỏi tải từ Database máy chủ.
+   - Bảng **Question Palette** chuyển đổi màu trạng thái thông minh và tự động cuộn.
+   - Cơ chế tự động lưu nháp mã hóa cục bộ mỗi 15 giây chống mất dữ liệu khi mất điện.
+   - Camera AI chạy ngầm tính toán góc đầu và phát hiện gian lận.
+4. **Màn hình 4 (Biên nhận điện tử & QR Code):** Sau khi nộp bài, hệ thống ký số RSA-2048 PSS, gửi lên Server nhận biên lai và hiển thị mã QR chống chối bỏ.
+
+---
+
+## 🧪 5. Kiểm thử Tích hợp Tự động (Automated Test Suites)
+
+Chạy kịch bản kiểm thử tích hợp toàn diện 4 giai đoạn:
+```powershell
+# Kiểm thử tích hợp TCP, SQLite, Watchdog, và Multicast
+python tests\test_integration.py
+
+# Kiểm thử tích hợp Giai đoạn 4: Client <-> Server <-> Web Bridge WebSocket <-> Multicast
+python tests\test_stage4_integration.py
+```
+*Tất cả bài kiểm thử đều đạt kết quả `PASSED 100%`.*
+
+---
+
+## 📂 6. Cấu trúc Mã nguồn Chi tiết
 
 ```text
 LapTrinhMang_Project/
 ├── common/
-│   ├── protocol.py            # Giao thức truyền tin nhị phân và đóng gói gói tin
-│   └── crypto_utils.py        # Thư viện mã hóa RSA-2048, SHA-256 PSS, AES-GCM
+│   ├── protocol.py            # Giao thức nhị phân 23-byte Header & phân loại mã lệnh
+│   └── crypto_utils.py        # Thư viện mã hóa RSA-2048, SHA-256 PSS, AES-256-GCM
 ├── server/
-│   ├── tcp_server.py          # Máy chủ TCP đa luồng chấm thi & xác thực chữ ký số
-│   └── multicast_sender.py    # Bộ phát lệnh UDP Multicast phòng thi
+│   ├── tcp_server.py          # Điểm vào Multi-Threaded TCP Server & điều phối dịch vụ
+│   ├── web_bridge.py          # Cầu nối HTTP Dashboard (8080) & WebSocket Broadcaster (8081)
+│   ├── multicast_sender.py    # Bộ phát lệnh đồng loạt UDP Multicast (224.1.1.1:5005)
+│   ├── core/
+│   │   └── session_manager.py # Quản lý phiên kết nối & Heartbeat Watchdog luồng ngầm
+│   ├── database/
+│   │   ├── schema.sql         # Lược đồ CSDL bền vững (students, exams, questions, submissions, violations)
+│   │   ├── connection.py      # Thread-local Database Manager, WAL mode, Mutex lock
+│   │   ├── repositories.py    # Repository Pattern cho CRUD và truy vấn an toàn
+│   │   └── seed_data.py       # Khởi tạo dữ liệu mẫu đề thi và tài khoản sinh viên
+│   ├── services/
+│   │   ├── auth_service.py    # Xác thực sinh trắc học Face ID & Token HMAC
+│   │   ├── exam_service.py    # Phát đề thi, kiểm tra mã băm & xác thực chữ ký số RSA
+│   │   └── audit_service.py   # Lưu trữ ảnh snapshot webcam & ghi log vi phạm
+│   └── handlers/
+│       └── socket_handler.py  # Router định tuyến byte-stream và điều phối dịch vụ
 ├── client_desktop/
 │   ├── main_window.py         # Kiosk Host Window điều phối 4 màn hình
-│   ├── ai_proctor_thread.py   # QThread xử lý thị giác máy tính & phát hiện vi phạm
-│   ├── network_client.py      # TCP Client quản lý phiên, nhịp tim & nộp bài
-│   ├── multicast_listener.py  # Luồng lắng nghe UDP Multicast phòng thi
+│   ├── ai_proctor_thread.py   # QThread xử lý thị giác MediaPipe & đo góc Pose Yaw/Pitch
+│   ├── network_client.py      # TCP Client quản lý kết nối, heartbeat & nộp bài
+│   ├── multicast_listener.py  # Luồng ngầm bắt gói tin UDP Multicast phòng thi
 │   ├── security/
 │   │   ├── monitor_blocker.py # Khóa màn hình phụ / HDMI
 │   │   ├── process_watchdog.py# Quét phần mềm gian lận nền (psutil)
 │   │   └── clipboard_hook.py  # Xóa clipboard chống sao chép đề
 │   ├── storage/
-│   │   └── local_db.py        # SQLite tự động lưu nháp bài thi
+│   │   └── local_db.py        # SQLite tự động lưu nháp mã hóa cục bộ
 │   └── ui/
 │       ├── screen_preflight.py# Màn hình 1: Chẩn đoán thiết bị
 │       ├── screen_login.py    # Màn hình 2: Xác thực sinh trắc học
 │       ├── screen_exam.py     # Màn hình 3: Giao diện thi chính & Question Palette
 │       └── screen_receipt.py  # Màn hình 4: Biên nhận chữ ký số & QR Code
 ├── proctor_web/
-│   ├── index.html             # Dashboard Web thời gian thực cho giám thị
-│   └── dashboard_server.py    # WebSocket Server thông báo cảnh báo
+│   ├── index.html             # Dashboard Web thời gian thực cho giám thị (Zero-CDN)
+│   └── dashboard_server.py    # Điểm chạy độc lập phụ trợ cho Web Bridge
 ├── tests/
-│   └── test_integration.py   # Test suite tích hợp tự động
-├── docs/plans/
-│   └── 2026-11-10-production-exam-platform.md
+│   ├── test_integration.py    # Test suite tích hợp tổng thể
+│   └── test_stage4_integration.py # Test suite tích hợp Web Bridge & WebSocket
+├── docs/
+│   ├── ARCHITECTURE.md        # Kiến trúc hệ thống, sơ đồ tuần tự & FSM
+│   ├── DATABASE_DESIGN.md     # Thiết kế ERD & lược đồ CSDL chuẩn hóa
+│   ├── SPEC.md                # Đặc tả kỹ thuật giao thức nhị phân 23-byte & chữ ký số
+│   └── TASKS.md               # Bảng tổng hợp toàn bộ checklist hoàn thành
+├── server_storage/            # Thư mục lưu trữ database SQLite & ảnh bằng chứng (Ignored in Git)
 ├── .gitignore
 ├── requirements.txt
 └── README.md

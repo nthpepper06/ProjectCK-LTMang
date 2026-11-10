@@ -36,12 +36,14 @@ class SocketHandler:
         exam_service: ExamService,
         audit_service: AuditService,
         server_public_key_pem: bytes,
+        web_bridge: Optional[Any] = None,
     ):
         self.session_manager = session_manager
         self.auth_service = auth_service
         self.exam_service = exam_service
         self.audit_service = audit_service
         self.server_public_key_pem = server_public_key_pem
+        self.web_bridge = web_bridge
 
     def handle_connection(self, sock: socket.socket, addr: Tuple[str, int]) -> None:
         """
@@ -112,6 +114,13 @@ class SocketHandler:
                             "message": msg
                         }
                         send_packet(sock, CommandType.RES_AUTH_SUCCESS, res)
+
+                        if self.web_bridge:
+                            self.web_bridge.broadcast_ws({
+                                "type": "SESSION_UPDATE",
+                                "sessions": self.web_bridge.get_sessions_list(),
+                                "overview": self.web_bridge.get_overview_stats()
+                            })
                     else:
                         res = {
                             "success": False,
@@ -134,7 +143,14 @@ class SocketHandler:
                         exam_code=payload.get("exam_id")
                     )
                     if paper:
+                        session.status = "IN_EXAM"
                         send_packet(sock, CommandType.RES_EXAM_PAPER, paper)
+                        if self.web_bridge:
+                            self.web_bridge.broadcast_ws({
+                                "type": "SESSION_UPDATE",
+                                "sessions": self.web_bridge.get_sessions_list(),
+                                "overview": self.web_bridge.get_overview_stats()
+                            })
                     else:
                         send_packet(sock, CommandType.RES_EXAM_PAPER, {"error": "Exam paper not found."})
 
@@ -180,6 +196,22 @@ class SocketHandler:
                             "student_signature": c_sig,
                             "message": msg
                         })
+                        if self.web_bridge:
+                            self.web_bridge.broadcast_ws({
+                                "type": "NEW_SUBMISSION",
+                                "data": {
+                                    "student_id": s_id,
+                                    "student_name": session.student_name or s_id,
+                                    "sha256_hash": p_hash,
+                                    "client_sig_preview": f"{c_sig[:24]}...{c_sig[-12:]}" if len(c_sig) > 36 else c_sig,
+                                    "server_sig_preview": f"{server_sig[:24]}...{server_sig[-12:]}" if len(server_sig) > 36 else server_sig,
+                                    "submitted_at_ms": get_current_timestamp_ms(),
+                                    "status": "VERIFIED_RSA"
+                                },
+                                "overview": self.web_bridge.get_overview_stats(),
+                                "sessions": self.web_bridge.get_sessions_list(),
+                                "submissions": self.web_bridge.get_submissions_list()
+                            })
                     else:
                         send_packet(sock, CommandType.SUBMIT_ACK, {
                             "success": False,
@@ -196,3 +228,9 @@ class SocketHandler:
             logger.error(f"Error servicing connection from {addr} (Student: {student_id}): {e}", exc_info=True)
         finally:
             self.session_manager.remove_session(sock)
+            if self.web_bridge:
+                self.web_bridge.broadcast_ws({
+                    "type": "SESSION_UPDATE",
+                    "sessions": self.web_bridge.get_sessions_list(),
+                    "overview": self.web_bridge.get_overview_stats()
+                })

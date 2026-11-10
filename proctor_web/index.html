@@ -3,125 +3,1155 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bảng Điều Khiển Giám Thị - Smart AI Proctoring Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Smart AI Proctoring - Giám Thị Trung Tâm</title>
   <style>
-    body { background-color: #0F172A; color: #F8FAFC; }
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #131d31;
+      --bg-card: #1c2842;
+      --bg-card-hover: #223253;
+      --border-color: #2a3b5c;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --accent-cyan: #06b6d4;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation Bar */
+    header {
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #2563eb, #38bdf8);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+      text-transform: uppercase;
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      transition: all 0.3s;
+    }
+
+    .status-pill.disconnected {
+      background-color: rgba(239, 68, 68, 0.15);
+      color: var(--accent-red);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .clock-badge {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: monospace;
+      color: var(--accent-blue);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      padding: 24px 28px;
+      max-width: 1700px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* KPI Stats Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .kpi-card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+    }
+
+    .kpi-card.blue::before { background: var(--accent-blue); }
+    .kpi-card.green::before { background: var(--accent-green); }
+    .kpi-card.amber::before { background: var(--accent-amber); }
+    .kpi-card.red::before { background: var(--accent-red); }
+
+    .kpi-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .kpi-icon {
+      font-size: 28px;
+      opacity: 0.8;
+    }
+
+    /* Multicast Broadcast Control Bar */
+    .control-panel {
+      background: linear-gradient(180deg, var(--bg-secondary), #111a2d);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .control-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .control-tag {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-blue);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: monospace;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff;
+    }
+    .btn-success:hover {
+      background: linear-gradient(135deg, #047857, #059669);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-warning {
+      background: linear-gradient(135deg, #d97706, #f59e0b);
+      color: #fff;
+    }
+    .btn-warning:hover {
+      background: linear-gradient(135deg, #b45309, #d97706);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+      color: #fff;
+    }
+    .btn-danger:hover {
+      background: linear-gradient(135deg, #b91c1c, #dc2626);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-info {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #fff;
+    }
+    .btn-info:hover {
+      background: linear-gradient(135deg, #0369a1, #0284c7);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    .announcement-box {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .announcement-input {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      width: 240px;
+    }
+
+    .announcement-input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+    }
+
+    /* Main Grid Split: Sessions/Audits (Left) & Real-time AI Feed (Right) */
+    .dashboard-body {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1200px) {
+      .dashboard-body {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Left Panel: Tabs */
+    .panel-container {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .tabs-header {
+      display: flex;
+      background-color: #0e1626;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 12px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 14px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+    }
+
+    .tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+      background-color: rgba(56, 189, 248, 0.05);
+    }
+
+    .tab-content {
+      padding: 20px;
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Modern Table Design */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background-color: var(--bg-card);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(42, 59, 92, 0.5);
+      color: var(--text-main);
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-online { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-exam { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-submitted { background: rgba(139, 92, 246, 0.2); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .badge-warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+    .code-preview {
+      font-family: monospace;
+      font-size: 11px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #93c5fd;
+    }
+
+    /* Right Side Panel: AI Violation Feed */
+    .violation-panel {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      height: 680px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .violation-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0e1626;
+    }
+
+    .violation-header h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+    }
+
+    .feed-count {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .violation-stream {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .violation-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-left: 4px solid var(--accent-red);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeIn 0.3s ease-out;
+      transition: all 0.2s;
+    }
+
+    .violation-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(239, 68, 68, 0.6);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .v-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .v-student {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .v-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .v-type {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fca5a5;
+    }
+
+    .v-details {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .v-media-container {
+      position: relative;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      height: 110px;
+      background: #000;
+    }
+
+    .v-media-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s;
+    }
+
+    .v-media-container:hover img {
+      transform: scale(1.05);
+    }
+
+    .v-media-badge {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 13px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    /* Modal Lightbox for Evidence Inspection */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      max-width: 800px;
+      width: 100%;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .modal-close:hover { color: #fff; }
+
+    .modal-body {
+      padding: 20px;
+      text-align: center;
+    }
+
+    .modal-body img {
+      max-width: 100%;
+      max-height: 550px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      background: #1e293b;
+      border: 1px solid var(--accent-blue);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      animation: toastIn 0.3s ease-out;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    @keyframes toastIn {
+      from { transform: translateX(50px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
   </style>
 </head>
-<body class="p-6">
-  <div class="max-w-7xl mx-auto space-y-6">
-    <!-- Header -->
-    <header class="flex justify-between items-center bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg">
-      <div>
-        <h1 class="text-2xl font-bold text-blue-400">HỆ THỐNG GIÁM THỊ TRỰC TUYẾN THÔNG MINH</h1>
-        <p class="text-sm text-slate-400">Bảng điều khiển theo dõi vi phạm thời gian thực & phát lệnh thi</p>
-      </div>
-      <div class="flex items-center space-x-4">
-        <span id="wsStatus" class="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-          ● WebSocket: Đang kết nối
-        </span>
-        <span class="text-sm text-slate-300">Phòng thi: <strong class="text-white">LTM-ROOM-01</strong></span>
-      </div>
-    </header>
+<body>
 
-    <!-- Quick Stats & Broadcast Controls -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
-        <div class="text-slate-400 text-xs">Tổng thí sinh kết nối</div>
-        <div id="statConnected" class="text-2xl font-bold text-white mt-1">1</div>
-      </div>
-      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
-        <div class="text-slate-400 text-xs">Đang làm bài</div>
-        <div id="statInProgress" class="text-2xl font-bold text-emerald-400 mt-1">1</div>
-      </div>
-      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
-        <div class="text-slate-400 text-xs">Cảnh báo vi phạm AI</div>
-        <div id="statViolations" class="text-2xl font-bold text-rose-500 mt-1">0</div>
-      </div>
-      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
-        <div class="text-slate-400 text-xs">Đã nộp bài & Ký số</div>
-        <div id="statSubmitted" class="text-2xl font-bold text-cyan-400 mt-1">0</div>
+  <!-- Top Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div class="brand-text">
+        <h1>Smart AI Proctoring & Examination System</h1>
+        <p>Bảng Giám Thị Trực Tuyến & Đồng Bộ Vi Phạm Real-Time</p>
       </div>
     </div>
+    <div class="header-status">
+      <div class="clock-badge" id="liveClock">00:00:00</div>
+      <div class="status-pill" id="wsPill">
+        <span class="pulse-dot"></span>
+        <span id="wsLabel">WebSocket: Đang kết nối...</span>
+      </div>
+    </div>
+  </header>
 
-    <!-- Main Content: Student Grid & Violation Feed -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Candidates Live Grid -->
-      <div class="lg:col-span-2 space-y-4">
-        <h2 class="text-lg font-semibold text-slate-200">Danh sách Thí sinh Trực tuyến</h2>
-        <div id="studentsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <!-- Sample Student Card -->
-          <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
-            <div class="flex justify-between items-start">
-              <div>
-                <h3 class="font-bold text-white">Nguyễn Văn A</h3>
-                <span class="text-xs text-slate-400">MSSV: SV2026_01</span>
-              </div>
-              <span class="px-2 py-0.5 text-xs rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Đang thi
-              </span>
-            </div>
-            <div class="text-xs text-slate-300 space-y-1">
-              <div>Góc đầu: <span class="font-mono text-emerald-400">Yaw 0.0° | Pitch 0.0°</span></div>
-              <div>Chữ ký số RSA: <span class="text-emerald-400 font-semibold">Khóa hợp lệ (2048-bit)</span></div>
-              <div>Vi phạm ghi nhận: <span class="text-rose-400 font-bold">0</span></div>
-            </div>
+  <!-- Main Content Area -->
+  <main>
+    <!-- KPI Overview Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card blue">
+        <div>
+          <div class="kpi-title">Thí sinh Trực tuyến</div>
+          <div class="kpi-value" id="kpiActive">0</div>
+        </div>
+        <div class="kpi-icon">👥</div>
+      </div>
+      <div class="kpi-card green">
+        <div>
+          <div class="kpi-title">Đang Làm Bài</div>
+          <div class="kpi-value" id="kpiExam">0</div>
+        </div>
+        <div class="kpi-icon">📝</div>
+      </div>
+      <div class="kpi-card amber">
+        <div>
+          <div class="kpi-title">Đã Nộp Bài & Ký Số</div>
+          <div class="kpi-value" id="kpiSubmitted">0</div>
+        </div>
+        <div class="kpi-icon">✅</div>
+      </div>
+      <div class="kpi-card red">
+        <div>
+          <div class="kpi-title">Cảnh báo Vi phạm AI</div>
+          <div class="kpi-value" id="kpiViolations">0</div>
+        </div>
+        <div class="kpi-icon">🚨</div>
+      </div>
+    </section>
+
+    <!-- Multicast Exam Control Center -->
+    <section class="control-panel">
+      <div class="control-title">
+        <span>📢 Điều Khiển Phòng Thi (UDP Multicast)</span>
+        <span class="control-tag">224.1.1.1:5005</span>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-success" onclick="sendMulticastAction('START')">
+          ▶️ Bắt Đầu Thi (60 Phút)
+        </button>
+        <button class="btn btn-warning" onclick="sendMulticastAction('PAUSE')">
+          ⏸️ Tạm Dừng Khẩn Cấp
+        </button>
+        <button class="btn btn-info" onclick="sendMulticastAction('RESUME')">
+          ⏯️ Tiếp Tục Bài Thi
+        </button>
+        <button class="btn btn-danger" onclick="sendMulticastAction('FORCE_SUBMIT')">
+          🛑 Thu Bài Đồng Loạt
+        </button>
+        <div class="announcement-box">
+          <input type="text" id="announcementInput" class="announcement-input" placeholder="Nhập thông báo gửi thí sinh...">
+          <button class="btn btn-info" onclick="sendAnnouncement()">Gửi 💬</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Split Screen: Left (Sessions & Submissions) / Right (Real-time AI Violations) -->
+    <section class="dashboard-body">
+      <!-- Left Panel -->
+      <div class="panel-container">
+        <div class="tabs-header">
+          <button class="tab-btn active" onclick="switchTab('sessions')">
+            <span>👤 Danh Sách Thí Sinh Kết Nối</span>
+          </button>
+          <button class="tab-btn" onclick="switchTab('submissions')">
+            <span>🔏 Đối Soát Chữ Ký Số RSA & Biên Lai</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Live Sessions -->
+        <div id="tab-sessions" class="tab-content active">
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>MSSV</th>
+                  <th>Họ và Tên</th>
+                  <th>Địa chỉ IP</th>
+                  <th>Trạng thái</th>
+                  <th>Heartbeat cuối</th>
+                  <th>Cảnh báo vi phạm</th>
+                </tr>
+              </thead>
+              <tbody id="sessionsTableBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                    Chưa có thí sinh nào kết nối...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab 2: Verified Submissions -->
+        <div id="tab-submissions" class="tab-content">
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>MSSV</th>
+                  <th>Họ và Tên</th>
+                  <th>SHA-256 Digest Bài làm</th>
+                  <th>Chữ ký số Thí sinh (RSA)</th>
+                  <th>Biên lai Server Ký</th>
+                  <th>Thời gian nộp</th>
+                  <th>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody id="submissionsTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                    Chưa có bài thi nào nộp...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      <!-- Real-time Violation Event Stream -->
-      <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-slate-200">Luồng Cảnh báo Vi phạm</h2>
-        <div id="violationStream" class="bg-slate-800 p-4 rounded-xl border border-slate-700 h-[480px] overflow-y-auto space-y-3">
-          <div class="text-xs text-slate-500 text-center py-4">Chưa phát hiện vi phạm nào...</div>
+      <!-- Right Panel: Real-time AI Violation Feed -->
+      <div class="violation-panel">
+        <div class="violation-header">
+          <h2>
+            <span>🚨 Live AI Violation Feed</span>
+          </h2>
+          <span class="feed-count" id="feedCountBadge">0 alerts</span>
         </div>
+        <div class="violation-stream" id="violationStream">
+          <div class="empty-state" id="emptyViolations">
+            <span style="font-size: 32px; margin-bottom: 8px;">🛡️</span>
+            <span>Chưa ghi nhận vi phạm AI nào.<br>Hệ thống giám sát đang chạy an toàn.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Image Lightbox Modal -->
+  <div class="modal-overlay" id="lightboxModal" onclick="closeLightbox(event)">
+    <div class="modal-dialog" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <span class="modal-title" id="modalTitle">Bằng chứng snapshot vi phạm</span>
+        <button class="modal-close" onclick="closeLightbox()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <img id="modalImg" src="" alt="Evidence Snapshot">
       </div>
     </div>
   </div>
 
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
   <script>
-    // WebSocket Client logic to connect to proctor_web/dashboard_server.py
-    const ws = new WebSocket("ws://localhost:8765");
-    const wsStatus = document.getElementById("wsStatus");
-    const violationStream = document.getElementById("violationStream");
-    const statViolations = document.getElementById("statViolations");
-    let violationCount = 0;
+    // 1. Digital Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("liveClock").textContent = now.toLocaleTimeString("vi-VN");
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
 
-    ws.onopen = () => {
-      wsStatus.textContent = "● WebSocket: Đã kết nối";
-      wsStatus.className = "px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-    };
+    // 2. Tab Navigation
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(content => content.classList.remove("active"));
 
-    ws.onclose = () => {
-      wsStatus.textContent = "● WebSocket: Mất kết nối";
-      wsStatus.className = "px-3 py-1 text-xs font-semibold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30";
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "VIOLATION_ALERT") {
-          violationCount++;
-          statViolations.textContent = violationCount;
-
-          const item = document.createElement("div");
-          item.className = "bg-rose-950/40 border border-rose-800/60 p-3 rounded-lg text-xs space-y-1";
-          item.innerHTML = `
-            <div class="flex justify-between text-rose-300 font-semibold">
-              <span>Thí sinh: ${msg.student_id}</span>
-              <span>${new Date().toLocaleTimeString()}</span>
-            </div>
-            <div class="text-rose-200 font-medium">${msg.violation_type}</div>
-            <div class="text-slate-400">${msg.details}</div>
-          `;
-          violationStream.prepend(item);
-        }
-      } catch (err) {
-        console.error("Lỗi phân tích gói tin WebSocket:", err);
+      if (tabName === 'sessions') {
+        document.querySelector(".tab-btn:nth-child(1)").classList.add("active");
+        document.getElementById("tab-sessions").classList.add("active");
+      } else {
+        document.querySelector(".tab-btn:nth-child(2)").classList.add("active");
+        document.getElementById("tab-submissions").classList.add("active");
       }
-    };
+    }
+
+    // 3. Toast Notifications
+    function showToast(message, isError = false) {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      if (isError) toast.style.borderColor = "var(--accent-red)";
+      toast.innerHTML = `<span>${isError ? '⚠️' : '📢'}</span> <span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    // 4. Lightbox Modal
+    function openLightbox(url, title) {
+      document.getElementById("modalImg").src = url;
+      document.getElementById("modalTitle").textContent = title || "Bằng chứng snapshot vi phạm";
+      document.getElementById("lightboxModal").classList.add("active");
+    }
+
+    function closeLightbox() {
+      document.getElementById("lightboxModal").classList.remove("active");
+    }
+
+    // 5. Real-Time WebSocket Client
+    let ws = null;
+    let reconnectTimeout = null;
+
+    function initWebSocket() {
+      const host = window.location.hostname || "localhost";
+      const wsUrl = `ws://${host}:8081`;
+      const pill = document.getElementById("wsPill");
+      const label = document.getElementById("wsLabel");
+
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          pill.classList.remove("disconnected");
+          label.textContent = "WebSocket: Đã kết nối Real-Time";
+          showToast("Đã kết nối luồng giám sát thời gian thực!");
+        };
+
+        ws.onclose = () => {
+          pill.classList.add("disconnected");
+          label.textContent = "WebSocket: Mất kết nối (Thử lại...)";
+          if (!reconnectTimeout) {
+            reconnectTimeout = setTimeout(() => {
+              reconnectTimeout = null;
+              initWebSocket();
+            }, 3000);
+          }
+        };
+
+        ws.onerror = (err) => {
+          console.error("WS error:", err);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const packet = JSON.parse(event.data);
+            handleIncomingPacket(packet);
+          } catch (e) {
+            console.error("Failed to parse packet:", e);
+          }
+        };
+      } catch (err) {
+        console.error("Init WS error:", err);
+      }
+    }
+
+    function handleIncomingPacket(packet) {
+      const type = packet.type;
+
+      if (type === "INITIAL_STATE") {
+        if (packet.overview) updateKPIs(packet.overview);
+        if (packet.sessions) renderSessions(packet.sessions);
+        if (packet.submissions) renderSubmissions(packet.submissions);
+        if (packet.violations) {
+          packet.violations.reverse().forEach(v => prependViolationFeed(v));
+        }
+      } else if (type === "SESSION_UPDATE") {
+        if (packet.sessions) renderSessions(packet.sessions);
+        if (packet.overview) updateKPIs(packet.overview);
+      } else if (type === "NEW_VIOLATION") {
+        prependViolationFeed(packet.data);
+        if (packet.overview) updateKPIs(packet.overview);
+      } else if (type === "NEW_SUBMISSION") {
+        appendSubmission(packet.data);
+        if (packet.overview) updateKPIs(packet.overview);
+        if (packet.sessions) renderSessions(packet.sessions);
+      } else if (type === "MULTICAST_DISPATCHED") {
+        showToast(packet.message || `Đã phát lệnh UDP Multicast: ${packet.action}`);
+      } else if (type === "ACTION_RESULT") {
+        if (packet.data && packet.data.message) {
+          showToast(packet.data.message, !packet.data.success);
+        }
+      }
+    }
+
+    // 6. UI Render Functions
+    function updateKPIs(overview) {
+      if (!overview) return;
+      document.getElementById("kpiActive").textContent = overview.active_students ?? 0;
+      document.getElementById("kpiExam").textContent = overview.in_exam ?? 0;
+      document.getElementById("kpiSubmitted").textContent = overview.submitted ?? 0;
+      document.getElementById("kpiViolations").textContent = overview.total_violations ?? 0;
+      document.getElementById("feedCountBadge").textContent = `${overview.total_violations ?? 0} alerts`;
+    }
+
+    function renderSessions(sessions) {
+      const tbody = document.getElementById("sessionsTableBody");
+      if (!sessions || sessions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Chưa có thí sinh nào kết nối...</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = sessions.map(s => {
+        let badgeClass = "badge-online";
+        let statusText = "Đã kết nối";
+        if (s.status === "IN_EXAM") {
+          badgeClass = "badge-exam";
+          statusText = "Đang thi";
+        } else if (s.status === "SUBMITTED") {
+          badgeClass = "badge-submitted";
+          statusText = "Đã nộp bài";
+        }
+
+        const heartbeatText = s.last_heartbeat_ago <= 1 ? "vừa xong" : `${s.last_heartbeat_ago}s trước`;
+        const vCount = s.violations_count || 0;
+        const vBadge = vCount > 0 ? `<span class="badge badge-warning">${vCount} cảnh báo</span>` : `<span style="color: var(--accent-green);">0</span>`;
+
+        return `
+          <tr>
+            <td><strong>${s.student_id}</strong></td>
+            <td>${s.student_name}</td>
+            <td class="code-preview">${s.addr}</td>
+            <td><span class="badge ${badgeClass}">${statusText}</span></td>
+            <td style="color: var(--text-muted);">${heartbeatText}</td>
+            <td>${vBadge}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderSubmissions(submissions) {
+      const tbody = document.getElementById("submissionsTableBody");
+      if (!submissions || submissions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">Chưa có bài thi nào nộp...</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = submissions.map(sub => `
+        <tr>
+          <td><strong>${sub.student_id}</strong></td>
+          <td>${sub.full_name || sub.student_name || sub.student_id}</td>
+          <td class="code-preview" title="${sub.sha256_hash}">${sub.sha256_hash.substring(0, 16)}...</td>
+          <td class="code-preview">${sub.client_sig_preview || sub.digital_signature?.substring(0, 20) + '...'}</td>
+          <td class="code-preview">${sub.server_sig_preview || sub.server_receipt_signature?.substring(0, 20) + '...'}</td>
+          <td style="color: var(--text-muted);">${sub.time_str || new Date(sub.submitted_at_ms).toLocaleTimeString()}</td>
+          <td><span class="badge badge-online">VERIFIED_RSA</span></td>
+        </tr>
+      `).join("");
+    }
+
+    function appendSubmission(sub) {
+      const tbody = document.getElementById("submissionsTableBody");
+      // Remove empty placeholder row if exists
+      if (tbody.querySelector("td[colspan]")) {
+        tbody.innerHTML = "";
+      }
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><strong>${sub.student_id}</strong></td>
+        <td>${sub.student_name || sub.student_id}</td>
+        <td class="code-preview">${(sub.sha256_hash || "").substring(0, 16)}...</td>
+        <td class="code-preview">${sub.client_sig_preview || 'RSA_VALID'}</td>
+        <td class="code-preview">${sub.server_sig_preview || 'OFFICIAL_SIGNED'}</td>
+        <td style="color: var(--text-muted);">${sub.time_str || new Date().toLocaleTimeString()}</td>
+        <td><span class="badge badge-online">VERIFIED_RSA</span></td>
+      `;
+      tbody.prepend(tr);
+    }
+
+    function prependViolationFeed(v) {
+      const stream = document.getElementById("violationStream");
+      const emptyState = document.getElementById("emptyViolations");
+      if (emptyState) emptyState.remove();
+
+      const card = document.createElement("div");
+      card.className = "violation-card";
+
+      const timeStr = v.time_str || (v.timestamp_ms ? new Date(v.timestamp_ms).toLocaleTimeString("vi-VN") : new Date().toLocaleTimeString("vi-VN"));
+
+      let mediaHtml = "";
+      if (v.evidence_url) {
+        mediaHtml = `
+          <div class="v-media-container" onclick="openLightbox('${v.evidence_url}', 'Bằng chứng: ${v.student_id} - ${v.violation_type}')">
+            <img src="${v.evidence_url}" alt="Snapshot" loading="lazy">
+            <span class="v-media-badge">📷 Click phóng to</span>
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="v-card-top">
+          <span class="v-student">👤 ${v.student_id}</span>
+          <span class="v-time">${timeStr}</span>
+        </div>
+        <div class="v-type">⚠️ ${v.violation_type}</div>
+        <div class="v-details">${v.details || 'Hệ thống AI ghi nhận góc nhìn hoặc hành vi bất thường.'}</div>
+        ${mediaHtml}
+      `;
+
+      stream.prepend(card);
+    }
+
+    // 7. Multicast Exam Controls
+    function sendMulticastAction(action) {
+      if (!confirm(`Xác nhận phát lệnh UDP Multicast: [${action}] tới toàn bộ thí sinh trong phòng?`)) {
+        return;
+      }
+
+      const payload = {
+        type: "MULTICAST_ACTION",
+        action: action,
+        duration_minutes: 60,
+        reason: "Giám thị phát lệnh từ Web Dashboard"
+      };
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      } else {
+        // Fallback to HTTP POST /api/multicast
+        fetch("/api/multicast", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => showToast(data.message, !data.success))
+        .catch(err => showToast(`Lỗi gửi lệnh: ${err}`, true));
+      }
+    }
+
+    function sendAnnouncement() {
+      const input = document.getElementById("announcementInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      const payload = {
+        type: "MULTICAST_ACTION",
+        action: "ANNOUNCEMENT",
+        message: text
+      };
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+      } else {
+        fetch("/api/multicast", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => showToast(data.message, !data.success))
+        .catch(err => showToast(`Lỗi gửi: ${err}`, true));
+      }
+
+      input.value = "";
+    }
+
+    // Initialize on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      initWebSocket();
+    });
   </script>
 </body>
 </html>

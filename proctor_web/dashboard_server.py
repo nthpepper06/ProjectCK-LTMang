@@ -1,44 +1,31 @@
 """
 Secure Examination & Proctoring Platform
-proctor_web/dashboard_server.py - WebSocket Relay Server for Proctor Web Dashboard
+proctor_web/dashboard_server.py - Standalone Launcher for Proctor Web & WebSocket Bridge
 """
 
-import asyncio
-import json
 import logging
-import websockets
+import os
+import sys
+import time
+
+# Ensure project root is in sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from server.web_bridge import WebBridge
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [WEB DASHBOARD] %(message)s")
 logger = logging.getLogger("DashboardServer")
 
-CONNECTED_CLIENTS = set()
-
-
-async def register(websocket):
-    CONNECTED_CLIENTS.add(websocket)
-    logger.info(f"Proctor Web Dashboard connected: {websocket.remote_address}")
-    try:
-        await websocket.wait_closed()
-    finally:
-        CONNECTED_CLIENTS.remove(websocket)
-        logger.info(f"Proctor Web Dashboard disconnected: {websocket.remote_address}")
-
-
-async def broadcast_alert(alert_data: dict):
-    """Broadcasts a violation alert or student status to all connected web dashboards."""
-    if CONNECTED_CLIENTS:
-        message = json.dumps(alert_data, ensure_ascii=False)
-        await asyncio.gather(*[client.send(message) for client in CONNECTED_CLIENTS])
-
-
-async def main():
-    logger.info("Starting Proctor Dashboard WebSocket Server on ws://0.0.0.0:8765...")
-    async with websockets.serve(register, "0.0.0.0", 8765):
-        await asyncio.Future()  # run forever
-
-
 if __name__ == "__main__":
+    bridge = WebBridge(http_port=8080, ws_port=8081)
+    bridge.start()
+    logger.info("Proctor Web Dashboard running at: http://localhost:8080")
+    logger.info("WebSocket Server running at: ws://localhost:8081")
+    logger.info("Press Ctrl+C to stop.")
+
     try:
-        asyncio.run(main())
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
-        logger.info("Dashboard Server stopped.")
+        bridge.stop()
+        logger.info("Proctor Web Dashboard stopped.")

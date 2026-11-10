@@ -85,5 +85,7 @@ class AuditService:
 
         return {
             "status": "LOGGED",
+            "success": True,
+            "evidence_saved": evidence_filename,
             "timestamp_ms": timestamp_ms
         }

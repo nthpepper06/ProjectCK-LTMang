@@ -48,10 +48,20 @@ desktop.ini
 
 # Local Storage, Evidence and Server Data
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
 server_storage/
 test_drafts.db
 exam_local_drafts.db
+
+# Cryptographic Keys & Secrets (Must NEVER be committed)
+*.pem
+*.key
+*.crt
+*.csr
+*.pfx
+*.p12
 
 # Logs
 *.log

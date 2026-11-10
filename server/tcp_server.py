@@ -29,6 +29,7 @@ from server.handlers.socket_handler import SocketHandler
 from server.services.audit_service import AuditService
 from server.services.auth_service import AuthService
 from server.services.exam_service import ExamService
+from server.web_bridge import WebBridge
 
 logger = logging.getLogger("TCP_SERVER")
 if not logger.handlers:
@@ -51,11 +52,17 @@ class ExamTCPServer:
         max_workers: int = 50,
         evidence_dir: str = "server_storage/evidence",
         db_path: Optional[str] = None,
+        enable_web: bool = True,
+        http_port: int = 8080,
+        ws_port: int = 8081,
     ):
         self.host = host
         self.port = port
         self.max_workers = max_workers
         self.evidence_dir = evidence_dir
+        self.enable_web = enable_web
+        self.http_port = http_port
+        self.ws_port = ws_port
         os.makedirs(self.evidence_dir, exist_ok=True)
         os.makedirs("server_storage/submissions", exist_ok=True)
 
@@ -88,16 +95,31 @@ class ExamTCPServer:
             evidence_dir=self.evidence_dir
         )
 
-        # 5. Initialize Socket Handler (Packet Router)
+        # 5. Initialize Web Bridge (HTTP + WebSocket + UDP Multicast control)
+        self.web_bridge: Optional[WebBridge] = None
+        if self.enable_web:
+            self.web_bridge = WebBridge(
+                http_host=self.host,
+                http_port=self.http_port,
+                ws_port=self.ws_port,
+                session_manager=self.session_manager,
+                exam_service=self.exam_service,
+                audit_service=self.audit_service,
+                evidence_dir=self.evidence_dir,
+                web_dir="proctor_web"
+            )
+
+        # 6. Initialize Socket Handler (Packet Router)
         self.socket_handler = SocketHandler(
             session_manager=self.session_manager,
             auth_service=self.auth_service,
             exam_service=self.exam_service,
             audit_service=self.audit_service,
-            server_public_key_pem=self.server_public_key
+            server_public_key_pem=self.server_public_key,
+            web_bridge=self.web_bridge
         )
 
-        # 6. Thread Pool Executor for Connection Concurrency
+        # 7. Thread Pool Executor for Connection Concurrency
         self.thread_pool = ThreadPoolExecutor(
             max_workers=self.max_workers,
             thread_name_prefix="ClientWorker"
@@ -120,6 +142,8 @@ class ExamTCPServer:
 
         logger.info(f"Exam TCP Server running on {self.host}:{self.port} (ThreadPool: {self.max_workers} workers)")
         self.session_manager.start_watchdog()
+        if self.web_bridge:
+            self.web_bridge.start()
 
         try:
             while self.is_running:
@@ -153,6 +177,8 @@ class ExamTCPServer:
 
         self.session_manager.stop_watchdog()
         self.session_manager.close_all()
+        if self.web_bridge:
+            self.web_bridge.stop()
         self.thread_pool.shutdown(wait=False, cancel_futures=True)
         logger.info("Exam TCP Server stopped cleanly.")
 

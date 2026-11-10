@@ -25,10 +25,19 @@ Transform the system from an ad-hoc in-memory server to an enterprise-grade, lay
 - [x] Create `server/database/seed_data.py` to seed sample exam and 2 students with mock/sample face embeddings and RSA keys
 - [x] Execute `seed_data.py` and verify data persistence in `server_storage/exam_system.db`
 
-## Phase 3: Layered Backend Architecture Preparation & Concurrency Analysis
-- [x] Scaffold `server/core/`, `server/services/`, and `server/handlers/`
-- [x] Explain thread-safe database concurrency model (WAL mode, Thread-local connections, Write serialization lock vs read concurrency)
-- [x] Implement `server/core/session_manager.py` with `ClientSession` and `SessionManager` watchdog
-- [x] Implement `server/services/auth_service.py`, `exam_service.py`, `audit_service.py`
-- [x] Implement `server/handlers/socket_handler.py` and modularize `server/tcp_server.py`
-- [x] Verify full integration tests and watchdog kick functionality (100% passed)
+## Phase 4: Proctor Web Dashboard & Real-Time WebSocket Bridge
+- [x] Implement `server/web_bridge.py`:
+  - Unified HTTP + WebSocket server running alongside `tcp_server.py`
+  - REST endpoints: `/api/overview`, `/api/sessions`, `/api/submissions`, `/api/violations`, `/evidence/<filename>`
+  - WebSocket hub for live push: `NEW_VIOLATION`, `SESSION_UPDATE`, `NEW_SUBMISSION`, `MULTICAST_DISPATCHED`
+  - Integration with `MulticastSender` to trigger `START`, `PAUSE`, `RESUME`, `FORCE_SUBMIT` from Web Dashboard
+- [x] Hook `AuditService`, `SessionManager`, and `ExamService` to notify `web_bridge` on new events
+- [x] Integrate `web_bridge` startup and shutdown into `server/tcp_server.py`
+- [x] Implement `proctor_web/index.html` (Modern, premium Dark Mode UI):
+  - Metric counters (Total Connected, In Exam, Submitted, Total AI Alerts)
+  - Control Panel for UDP Multicast Exam operations
+  - Live Candidates Session Table (MSSV, Name, Status, Last Heartbeat, Violations)
+  - Live AI Proctoring Violation Feed (Webcam Snapshot thumbnail, violation type, details, timestamp, modal zoom)
+  - Non-Repudiation RSA Audit Table (Student, SHA-256 Digest, Digital Signature, Verified status)
+- [x] Run automated end-to-end integration test (Client -> Server -> Web Bridge WebSocket & Multicast)
+- [x] Prepare final report (NO git commit/push as instructed by user)
