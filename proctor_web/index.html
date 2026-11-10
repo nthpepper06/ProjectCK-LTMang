@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bảng Điều Khiển Giám Thị - Smart AI Proctoring Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0F172A; color: #F8FAFC; }
+  </style>
+</head>
+<body class="p-6">
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex justify-between items-center bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg">
+      <div>
+        <h1 class="text-2xl font-bold text-blue-400">HỆ THỐNG GIÁM THỊ TRỰC TUYẾN THÔNG MINH</h1>
+        <p class="text-sm text-slate-400">Bảng điều khiển theo dõi vi phạm thời gian thực & phát lệnh thi</p>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span id="wsStatus" class="px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+          ● WebSocket: Đang kết nối
+        </span>
+        <span class="text-sm text-slate-300">Phòng thi: <strong class="text-white">LTM-ROOM-01</strong></span>
+      </div>
+    </header>
+
+    <!-- Quick Stats & Broadcast Controls -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+        <div class="text-slate-400 text-xs">Tổng thí sinh kết nối</div>
+        <div id="statConnected" class="text-2xl font-bold text-white mt-1">1</div>
+      </div>
+      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+        <div class="text-slate-400 text-xs">Đang làm bài</div>
+        <div id="statInProgress" class="text-2xl font-bold text-emerald-400 mt-1">1</div>
+      </div>
+      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+        <div class="text-slate-400 text-xs">Cảnh báo vi phạm AI</div>
+        <div id="statViolations" class="text-2xl font-bold text-rose-500 mt-1">0</div>
+      </div>
+      <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+        <div class="text-slate-400 text-xs">Đã nộp bài & Ký số</div>
+        <div id="statSubmitted" class="text-2xl font-bold text-cyan-400 mt-1">0</div>
+      </div>
+    </div>
+
+    <!-- Main Content: Student Grid & Violation Feed -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Candidates Live Grid -->
+      <div class="lg:col-span-2 space-y-4">
+        <h2 class="text-lg font-semibold text-slate-200">Danh sách Thí sinh Trực tuyến</h2>
+        <div id="studentsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Sample Student Card -->
+          <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <h3 class="font-bold text-white">Nguyễn Văn A</h3>
+                <span class="text-xs text-slate-400">MSSV: SV2026_01</span>
+              </div>
+              <span class="px-2 py-0.5 text-xs rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Đang thi
+              </span>
+            </div>
+            <div class="text-xs text-slate-300 space-y-1">
+              <div>Góc đầu: <span class="font-mono text-emerald-400">Yaw 0.0° | Pitch 0.0°</span></div>
+              <div>Chữ ký số RSA: <span class="text-emerald-400 font-semibold">Khóa hợp lệ (2048-bit)</span></div>
+              <div>Vi phạm ghi nhận: <span class="text-rose-400 font-bold">0</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Violation Event Stream -->
+      <div class="space-y-4">
+        <h2 class="text-lg font-semibold text-slate-200">Luồng Cảnh báo Vi phạm</h2>
+        <div id="violationStream" class="bg-slate-800 p-4 rounded-xl border border-slate-700 h-[480px] overflow-y-auto space-y-3">
+          <div class="text-xs text-slate-500 text-center py-4">Chưa phát hiện vi phạm nào...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // WebSocket Client logic to connect to proctor_web/dashboard_server.py
+    const ws = new WebSocket("ws://localhost:8765");
+    const wsStatus = document.getElementById("wsStatus");
+    const violationStream = document.getElementById("violationStream");
+    const statViolations = document.getElementById("statViolations");
+    let violationCount = 0;
+
+    ws.onopen = () => {
+      wsStatus.textContent = "● WebSocket: Đã kết nối";
+      wsStatus.className = "px-3 py-1 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+    };
+
+    ws.onclose = () => {
+      wsStatus.textContent = "● WebSocket: Mất kết nối";
+      wsStatus.className = "px-3 py-1 text-xs font-semibold rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30";
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "VIOLATION_ALERT") {
+          violationCount++;
+          statViolations.textContent = violationCount;
+
+          const item = document.createElement("div");
+          item.className = "bg-rose-950/40 border border-rose-800/60 p-3 rounded-lg text-xs space-y-1";
+          item.innerHTML = `
+            <div class="flex justify-between text-rose-300 font-semibold">
+              <span>Thí sinh: ${msg.student_id}</span>
+              <span>${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div class="text-rose-200 font-medium">${msg.violation_type}</div>
+            <div class="text-slate-400">${msg.details}</div>
+          `;
+          violationStream.prepend(item);
+        }
+      } catch (err) {
+        console.error("Lỗi phân tích gói tin WebSocket:", err);
+      }
+    };
+  </script>
+</body>
+</html>

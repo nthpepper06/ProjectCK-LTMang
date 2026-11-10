@@ -1,0 +1,10 @@
+# Smart AI Proctoring & Secure Examination Platform Dependencies
+PyQt6>=6.6.0
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+cryptography>=42.0.0
+psutil>=5.9.0
+qrcode>=7.4.2
+pillow>=10.0.0
+numpy>=1.24.0
+websockets>=12.0
