@@ -8,82 +8,115 @@ Hệ thống là nền tảng khảo thí phân tán chuẩn Client-Server dành
 
 ---
 
-### 2. SƠ ĐỒ THÀNH PHẦN KIẾN TRÚC (SYSTEM COMPONENT DIAGRAM)
+### 2. SƠ ĐỒ THÀNH PHẦN KIẾN TRÚC PHÂN TẦNG (LAYERED SYSTEM COMPONENT DIAGRAM)
 
 ```mermaid
 flowchart TB
-    subgraph ClientDesktop["🖥️ CLIENT DESKTOP APPLICATION (PyQt6 / Kiosk Mode)"]
+    subgraph Presentation_Layer["1. TẦNG TRÌNH DIỄN (PRESENTATION LAYER)"]
         direction TB
-        subgraph UI_Layer["Giao diện Người dùng (QStackedWidget)"]
-            S1["Screen 1: Pre-flight Diagnostic"]
-            S2["Screen 2: Biometric Onboarding"]
-            S3["Screen 3: Exam View & Palette"]
-            S4["Screen 4: Cryptographic Receipt"]
+        subgraph ClientDesktop["🖥️ CLIENT DESKTOP APPLICATION (PyQt6 Cyber Glassmorphism UI)"]
+            subgraph UI_Layer["Giao diện Người dùng (QStackedWidget)"]
+                S1["Screen 1: Pre-flight & LAN Discovery"]
+                S2["Screen 2: Face ID & Biometric Login"]
+                S3["Screen 3: Exam Paper & Question Palette"]
+                S4["Screen 4: Cryptographic Receipt & QR Audit"]
+            end
+
+            subgraph Client_Security["An ninh Tầng Hệ điều hành (Win32 OS Hardening)"]
+                VM["Anti-VM Detector (BIOS & MAC OUI)"]
+                KB["Low-Level Keyboard Hook (WH_KEYBOARD_LL)"]
+                DA["Display Affinity Guard (Anti-Screen Capture)"]
+                MB["Multi-Monitor Blocker (QGuiApplication)"]
+                PW["Anti-Cheat Watchdog (psutil 3s scan)"]
+                AM["Audio Environmental Monitor (RMS > 3s)"]
+            end
+
+            subgraph Client_Proctor["Giám sát Thị giác AI (Multi-Modal Vision Engine)"]
+                HUD["Cyber Camera HUD (L-Reticle, Gaze Ray, Laser Scan)"]
+                EAR["Liveness & Blink Detector (EAR Spoof Guard)"]
+                YOLO["Object Detector (Cell Phone & Person Count)"]
+            end
+
+            subgraph Client_Core["Tầng Xử lý Mạng & Lưu trữ Cục bộ"]
+                Net_Client["NetworkClient (TCP Socket + RSA Signer)"]
+                Local_DB[("Local SQLite Draft Storage")]
+                MC_Listen["MulticastListener (UDP 224.1.1.1:5005)"]
+                LAN_Scan["Client LAN Scanner (UDP 5006)"]
+            end
+
+            S3 <--> Local_DB
+            HUD --> UI_Layer
+            EAR --> HUD
+            YOLO --> HUD
+            Client_Security --> Net_Client
+            HUD --> Net_Client
+            MC_Listen --> S3
+            LAN_Scan --> S1
         end
 
-        subgraph Client_Security["An ninh Tầng Hệ điều hành (OS Security)"]
-            MB["Multi-Monitor Blocker (QGuiApplication)"]
-            PW["Anti-Cheat Watchdog (psutil 3s scan)"]
-            CS["Clipboard & Focus Sanitizer"]
+        subgraph ProctorWeb["🌐 PROCTOR WEB DASHBOARD (Zero-CDN Dark Mode SPA)"]
+            Web_UI["Giao diện Giám thị: KPI Cards, Live Stream, Control Panel"]
+            WS_Client["WebSocket Client (Live Violation & Candidates Feed)"]
+            HTTP_Client["HTTP Fetcher (Snapshot Lightbox & Submissions)"]
+            Web_UI <--> WS_Client
+            Web_UI <--> HTTP_Client
         end
-
-        subgraph Client_Proctor["Giám sát Thị giác Máy tính (AI Engine)"]
-            CV_Worker["AIProctorThread (OpenCV + MediaPipe)"]
-            Face_Mesh["FaceMesh & Head Pose (Yaw/Pitch)"]
-        end
-
-        subgraph Client_Core["Tầng Xử lý Mạng & Lưu trữ Cục bộ"]
-            Net_Client["NetworkClient (TCP Socket + RSA Signer)"]
-            Local_DB[("Local SQLite Draft Storage")]
-            MC_Listen["MulticastListener (UDP 224.1.1.1:5005)"]
-        end
-
-        S3 <--> Local_DB
-        CV_Worker --> Face_Mesh
-        Face_Mesh --> UI_Layer
-        Client_Security --> Net_Client
-        CV_Worker --> Net_Client
-        MC_Listen --> S3
     end
 
-    subgraph Network_Boundary["🌐 TẦNG GIAO VẬN MẠNG (TCP / UDP)"]
-        TCP_Stream["Kênh TCP Tin cậy (Frame: 23-byte Binary Header + JSON Payload)"]
-        UDP_Stream["Kênh UDP Multicast (224.1.1.1:5005 - Đồng bộ Lệnh thi)"]
+    subgraph Transport_Layer["2. TẦNG GIAO VẬN MẠNG (NETWORK & TRANSPORT LAYER)"]
+        TCP_Stream["Kênh TCP Tin cậy (Port 8888, 23-byte Binary Header + JSON Payload)"]
+        WS_Stream["Kênh Real-time WebSocket (Port 8081 - Live Violation Push)"]
+        HTTP_Stream["Kênh HTTP Server (Port 8080 - Static Dashboard & Evidence Snapshots)"]
+        UDP_MC["Kênh UDP Multicast (224.1.1.1:5005 - Đồng bộ Lệnh thi Đồng loạt)"]
+        UDP_Disc["Kênh UDP Broadcast Discovery (Port 5006 - Zero-Config LAN Pairing)"]
     end
 
-    subgraph ServerBackend["🏢 BACKEND SERVER CORE (Layered Multi-Threaded Architecture)"]
+    subgraph Backend_Layer["3. TẦNG BACKEND & DỊCH VỤ NGHIỆP VỤ (SERVER BUSINESS SERVICES)"]
         direction TB
-        subgraph Net_Inbound["Tầng Nhập liệu Mạng & Giao vận"]
+        subgraph Server_Inbound["Tầng Điều phối Mạng & Cầu nối Web (Web Bridge)"]
             TCP_Listener["Multi-Thread TCP Listener (Port 8888)"]
+            Socket_Handler["Socket Request Handler (Binary Router)"]
+            Web_Bridge["ProctorWebBridge (HTTP 8080 + WebSocket 8081)"]
             MC_Sender["Multicast Command Broadcaster (TTL=2)"]
-            Socket_Handler["Socket Request Handler (Packet Framing)"]
+            Disc_Responder["Server Discovery Responder (UDP 5006)"]
         end
 
-        subgraph Core_Services["Tầng Dịch vụ Nghiệp vụ (Business Services)"]
-            Session_Mgr["SessionManager (Heartbeat & Concurrency)"]
-            Auth_Svc["AuthService (Biometric & Key Registration)"]
-            Exam_Svc["ExamService (Paper Delivery & RSA Verify)"]
+        subgraph Core_Services["Tầng Dịch vụ Nghiệp vụ (Business Services Layer)"]
+            Session_Mgr["SessionManager (Heartbeat Watchdog & Active Pool)"]
+            Auth_Svc["AuthService (Face Cosine >= 0.70 & HMAC Tokens)"]
+            Exam_Svc["ExamService (Paper Delivery & RSA-2048 Dual-Signature)"]
             Audit_Svc["AuditService (Telemetry & Evidence Storage)"]
-        end
-
-        subgraph DB_Layer["Tầng Dữ liệu Bền vững (Persistent Data Access)"]
-            DB_Conn["Thread-Safe Database Connection Pool (WAL Mode)"]
-            Student_Repo["StudentRepository"]
-            Exam_Repo["ExamRepository"]
-            Sub_Repo["SubmissionRepository"]
-            Viol_Repo["ViolationRepository"]
-            Disk_DB[("SQLite/Postgres Database: exam_system.db")]
         end
 
         TCP_Listener --> Socket_Handler
         Socket_Handler --> Core_Services
-        Core_Services --> DB_Layer
+        Web_Bridge <--> Session_Mgr
+        Web_Bridge <--> Audit_Svc
+        Web_Bridge <--> Exam_Svc
+    end
+
+    subgraph Data_Layer["4. TẦNG TRUY XUẤT DỮ LIỆU & CƠ SỞ DỮ LIỆU (PERSISTENT DATA ACCESS LAYER)"]
+        subgraph Repositories["Data Access Layer (Repository Pattern)"]
+            Student_Repo["StudentRepository"]
+            Exam_Repo["ExamRepository"]
+            Sub_Repo["SubmissionRepository"]
+            Viol_Repo["ViolationRepository"]
+            DB_Conn["Thread-Safe Connection Manager (WAL Mode + Mutex)"]
+        end
+        Disk_DB[("SQLite/PostgreSQL: exam_system.db")]
+        Evidence_Disk[("server_storage/evidence/*.jpg")]
+
+        Core_Services --> Repositories
+        Repositories --> DB_Conn
         DB_Conn --> Disk_DB
+        Audit_Svc --> Evidence_Disk
     end
 
     Net_Client <==> TCP_Stream <==> TCP_Listener
-    MC_Sender -.-> UDP_Stream -.-> MC_Listen
-```
+    LAN_Scan <==> UDP_Disc <==> Disc_Responder
+    MC_Sender -.-> UDP_MC -.-> MC_Listen
+    WS_Client <==> WS_Stream <==> Web_Bridge
+    HTTP_Client <==> HTTP_Stream <==> Web_Bridge
 
 ---
 
@@ -99,46 +132,50 @@ sequenceDiagram
     participant DB as Persistent Database
     actor Proctor as Giám thị (Multicast Console)
 
-    Note over Candidate, ClientCore: GIAI ĐOẠN 1: PRE-FLIGHT SYSTEM DIAGNOSTIC
-    Candidate->>ClientCore: Khởi chạy ứng dụng
-    ClientCore->>ClientCore: Quét Camera, Micro, Màn hình phụ, Nguồn điện
+    Note over Candidate, TCPServer: GIAI ĐOẠN 1: ZERO-CONFIG LAN DISCOVERY & PRE-FLIGHT
+    Candidate->>ClientCore: Bật ứng dụng Kiosk
+    ClientCore->>TCPServer: UDP Broadcast (Port 5006) -> DISCOVER_EXAM_SERVER
+    TCPServer-->>ClientCore: UDP Unicast -> SERVER_ANNOUNCEMENT (IP, TCP 8888, Tên kỳ thi)
+    ClientCore->>ClientCore: Tự động điền IP, Quét Camera, Mic, Anti-VM (BIOS/MAC OUI)
     ClientCore->>TCPServer: Đo RTT Ping (< 100ms)
     TCPServer-->>ClientCore: PONG phản hồi độ trễ
     ClientCore-->>Candidate: Tất cả chỉ số ĐẠT -> Mở khóa nút Tiếp tục
 
     Note over Candidate, DB: GIAI ĐOẠN 2: BIOMETRIC LOGIN & RSA HANDSHAKE
-    Candidate->>ClientCore: Nhập MSSV & chụp khuôn mặt
-    AIWorker->>ClientCore: Trích xuất Face Embedding (128-d vector)
+    Candidate->>ClientCore: Nhập MSSV, kích hoạt Cyber Camera HUD quét tia laser
+    AIWorker->>ClientCore: Trích xuất Face Embedding (128-d vector), kiểm tra EAR chớp mắt
     ClientCore->>ClientCore: Sinh cặp khóa RSA 2048-bit thí sinh
     ClientCore->>TCPServer: REQ_CONNECT (MSSV, Public Key PEM)
-    TCPServer->>DB: Kiểm tra sinh viên & lưu Public Key tạm thời
+    TCPServer->>DB: Kiểm tra sinh viên & cập nhật Public Key vào DB
     TCPServer-->>ClientCore: RES_CONNECT_OK (Server Public Key PEM)
     ClientCore->>TCPServer: REQ_AUTH_BIOMETRIC (MSSV, Face Embedding)
     TCPServer->>DB: Đối soát vector khuôn mặt đăng ký sẵn trong DB
     DB-->>TCPServer: So khớp cosine similarity >= 0.70
     TCPServer-->>ClientCore: RES_AUTH_SUCCESS (Session Token)
 
-    Note over Candidate, DB: GIAI ĐOẠN 3: NHẬN ĐỀ & THI TRỰC TUYẾN
+    Note over Candidate, DB: GIAI ĐOẠN 3: NHẬN ĐỀ, GIÁM SÁT ĐA PHƯƠNG THỨC & THI
     ClientCore->>TCPServer: REQ_EXAM_PAPER (exam_id, session_token)
-    TCPServer->>DB: Lấy đề thi & danh sách câu hỏi
+    TCPServer->>DB: Lấy đề thi (Trắc nghiệm + Tự luận)
     DB-->>TCPServer: Exam Paper (JSON)
     TCPServer-->>ClientCore: RES_EXAM_PAPER (Title, Questions)
     Proctor->>ClientCore: UDP Multicast (224.1.1.1:5005) -> CMD_EXAM_START
-    ClientCore->>Candidate: Mở phòng thi, bắt đầu đếm ngược thời gian
+    ClientCore->>ClientCore: Kích hoạt Win32 Keyboard Hook (WH_KEYBOARD_LL) & Anti-Capture
+    ClientCore->>Candidate: Mở phòng thi, hiển thị Palette câu hỏi, đếm ngược thời gian
 
-    loop Chu kỳ 3-5 giây trong khi làm bài
-        Candidate->>ClientCore: Nhập câu trả lời
-        ClientCore->>ClientCore: Auto-save nháp vào SQLite cục bộ (15s)
-        ClientCore->>TCPServer: PING (Heartbeat)
-        TCPServer-->>ClientCore: PONG
-        AIWorker->>ClientCore: Phát hiện nghi vấn (Quay đầu Yaw > 25° / Chrome mở)
+    loop Chu kỳ trong khi làm bài (Heartbeat, Auto-save & Multi-Modal AI)
+        Candidate->>ClientCore: Chọn đáp án trắc nghiệm hoặc nhập tự luận
+        ClientCore->>ClientCore: Tự động lưu nháp vào SQLite cục bộ (15s)
+        ClientCore->>TCPServer: PING (Heartbeat mỗi 4-5s)
+        TCPServer-->>ClientCore: PONG (Reset watchdog)
+        AIWorker->>ClientCore: Phát hiện vi phạm (Nghiêng đầu > 25°, EAR < 0.2, Tiếng nói > 3s, Phone)
         ClientCore->>TCPServer: REPORT_VIOLATION (Vi phạm, Snapshot JPEG)
-        TCPServer->>DB: Ghi log vi phạm & lưu file ảnh vào ổ cứng
+        TCPServer->>DB: Ghi log vi phạm & lưu snapshot vào server_storage/evidence/
         TCPServer-->>ClientCore: VIOLATION_ACK
     end
 
-    Note over Candidate, DB: GIAI ĐOẠN 4: NỘP BÀI THI & CHỮ KÝ SỐ CHỐNG CHỐI BỎ
-    Candidate->>ClientCore: Nhấn Xác nhận Nộp bài
+    Note over Candidate, DB: GIAI ĐOẠN 4: NỘP BÀI THI & CHỮ KÝ SỐ KÉP CHỐNG CHỐI BỎ
+    Candidate->>ClientCore: Bấm Xác nhận Nộp bài (hoặc Hết giờ / CMD_EXAM_FINISH)
+    ClientCore->>ClientCore: Khóa toàn bộ ô nhập liệu (Input Locking)
     ClientCore->>ClientCore: Sắp xếp Canonical JSON câu trả lời
     ClientCore->>ClientCore: Băm SHA-256 nội dung bài thi
     ClientCore->>ClientCore: Ký số hash bằng Private Key RSA-2048 (PSS Padding)
@@ -148,7 +185,8 @@ sequenceDiagram
     TCPServer->>TCPServer: Ký đối ứng bằng Server RSA Private Key (Countersignature)
     TCPServer->>DB: TRANSACTION: Lưu submission + audit receipt
     TCPServer-->>ClientCore: SUBMIT_ACK (Receipt Data + Server Signature)
-    ClientCore->>Candidate: Hiển thị Màn hình 4: Biên nhận điện tử + Mã QR đối soát
+    ClientCore->>ClientCore: Gỡ bỏ Win32 Keyboard Hook & dừng Audio Monitor
+    ClientCore->>Candidate: Màn hình 4: Biên lai điện tử + Con dấu RSA + Mã QR đối soát
 ```
 
 ---

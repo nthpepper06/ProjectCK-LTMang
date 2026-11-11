@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from client_desktop.network_client import NetworkClient
+from client_desktop.ui.cyber_camera_hud import CyberCameraHUD
 
 
 class BiometricLoginScreen(QWidget):
@@ -121,7 +122,7 @@ class BiometricLoginScreen(QWidget):
 
         main_layout.addLayout(left_layout, 1)
 
-        # RIGHT PANE: Camera Video Frame with Alignment Overlay
+        # RIGHT PANE: Camera Video Frame with Cyber HUD
         right_layout = QVBoxLayout()
         right_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -138,13 +139,12 @@ class BiometricLoginScreen(QWidget):
         cam_inner.setContentsMargins(10, 10, 10, 10)
         cam_inner.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.lbl_camera_feed = QLabel("Đang mở luồng camera...")
-        self.lbl_camera_feed.setFixedSize(400, 300)
-        self.lbl_camera_feed.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lbl_camera_feed.setStyleSheet("background-color: #000; border-radius: 8px;")
-        cam_inner.addWidget(self.lbl_camera_feed)
+        self.camera_hud = CyberCameraHUD(self, is_compact=False)
+        self.camera_hud.setFixedSize(400, 300)
+        self.camera_hud.set_scanning(True)
+        cam_inner.addWidget(self.camera_hud)
 
-        lbl_guide_overlay = QLabel("🎯 Căn chỉnh khuôn mặt chính diện vào khung hình")
+        lbl_guide_overlay = QLabel("🎯 Căn chỉnh khuôn mặt chính diện vào khung quét laser")
         lbl_guide_overlay.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
         lbl_guide_overlay.setStyleSheet("color: #60A5FA; margin-top: 6px;")
         lbl_guide_overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -154,14 +154,9 @@ class BiometricLoginScreen(QWidget):
         main_layout.addLayout(right_layout, 1)
 
     def update_camera_frame(self, q_image: QImage) -> None:
-        """Renders live camera frames from AI proctor thread."""
-        pixmap = QPixmap.fromImage(q_image)
-        scaled = pixmap.scaled(
-            self.lbl_camera_feed.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation
-        )
-        self.lbl_camera_feed.setPixmap(scaled)
+        """Renders live camera frames via CyberCameraHUD."""
+        if hasattr(self, "camera_hud"):
+            self.camera_hud.update_frame(q_image)
 
     def _perform_biometric_login(self) -> None:
         student_id = self.txt_id.text().strip()

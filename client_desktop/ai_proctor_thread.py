@@ -13,6 +13,8 @@ import numpy as np
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtGui import QImage
 
+from client_desktop.security.object_detector import ObjectDetector
+
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] [AI PROCTOR] %(message)s")
 logger = logging.getLogger("AIProctor")
 
@@ -50,6 +52,18 @@ class AIProctorThread(QThread):
         self.roll = 0.0
         self.face_count = 0
         self.is_hardware_cam = False
+
+        # Multi-modal AI Enhancements
+        self.object_detector = ObjectDetector()
+        self.last_object_detect_time = time.time()
+        self.current_detections = []
+
+        # Liveness & Blink Tracking (EAR)
+        self.ear = 0.30
+        self.blink_count = 0
+        self.last_blink_time = time.time()
+        self.max_no_blink_seconds = 25.0
+        self._was_eye_closed = False
 
     def run(self) -> None:
         logger.info(f"Starting AI Proctoring Worker Thread (Camera index: {self.camera_index})...")
@@ -156,6 +170,24 @@ class AIProctorThread(QThread):
             yaw = float(dx * 40.0)
             pitch = float(-dy * 30.0)
 
+            # Estimate Eye Aspect Ratio (EAR) from eye region
+            eye_y = int(fy + fh * 0.22)
+            eye_h = int(fh * 0.22)
+            eye_roi = gray[eye_y:eye_y + eye_h, fx:fx + fw]
+            if eye_roi.size > 0:
+                _, eye_bin = cv2.threshold(eye_roi, 70, 255, cv2.THRESH_BINARY_INV)
+                white_pixels = cv2.countNonZero(eye_bin)
+                total_pixels = eye_roi.size
+                ear_estimate = float(white_pixels) / float(total_pixels) * 1.5
+                self.ear = round(max(0.10, min(0.45, ear_estimate)), 2)
+
+                # Blink detection
+                is_closed = (self.ear < 0.18)
+                if is_closed and not self._was_eye_closed:
+                    self.blink_count += 1
+                    self.last_blink_time = time.time()
+                self._was_eye_closed = is_closed
+
         return face_count, (yaw, pitch, roll)
 
     def _detect_faces_heuristic(self, gray: np.ndarray) -> list:
@@ -173,7 +205,31 @@ class AIProctorThread(QThread):
 
     def _evaluate_violations(self, frame: np.ndarray, face_count: int, yaw: float, pitch: float, roll: float) -> None:
         now = time.time()
+
+        # 1. Periodic Object Detection (Every 2 seconds)
+        if now - self.last_object_detect_time >= 2.0:
+            self.last_object_detect_time = now
+            obj_violation, obj_details, detections = self.object_detector.check_violations(frame)
+            self.current_detections = detections
+            if obj_violation and (now - self.last_violation_time >= self.cooldown_seconds):
+                self.last_violation_time = now
+                _, jpeg_buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+                self.violation_detected.emit(obj_violation, obj_details, jpeg_buffer.tobytes())
+                return
+
         if now - self.last_violation_time < self.cooldown_seconds:
+            return
+
+        # 2. Check Static Face Spoofing (Zero Blinks over max_no_blink_seconds)
+        if face_count == 1 and (now - self.last_blink_time > self.max_no_blink_seconds):
+            self.last_blink_time = now  # Reset to avoid flooding
+            self.last_violation_time = now
+            _, jpeg_buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+            self.violation_detected.emit(
+                "STATIC_FACE_DETECTED",
+                f"Cảnh báo Liveness: Không phát hiện chớp mắt tự nhiên trong {self.max_no_blink_seconds:.0f}s (Nghi vấn ảnh tĩnh/video lặp).",
+                jpeg_buffer.tobytes()
+            )
             return
 
         violation_type = None
@@ -218,12 +274,30 @@ class AIProctorThread(QThread):
         is_safe = (face_count == 1 and abs(yaw) <= 25 and abs(pitch) <= 20)
         status_color = (0, 220, 100) if is_safe else (50, 50, 240)
 
+        # Draw Object Detection Bounding Boxes
+        for det in self.current_detections:
+            bx, by, bw, bh = det["box"]
+            cls_name = det["class_name"]
+            conf = det["confidence"]
+            box_color = (0, 0, 255) if cls_name == "cell phone" else (255, 200, 0)
+            cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), box_color, 2)
+            cv2.putText(
+                frame,
+                f"{cls_name.upper()} ({conf:.0%})",
+                (bx, max(20, by - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                box_color,
+                2
+            )
+
         # Status Overlay Banner
-        cv2.rectangle(frame, (10, 10), (300, 75), (20, 25, 35), -1)
-        cv2.rectangle(frame, (10, 10), (300, 75), status_color, 2)
+        cv2.rectangle(frame, (10, 10), (320, 95), (20, 25, 35), -1)
+        cv2.rectangle(frame, (10, 10), (320, 95), status_color, 2)
         badge_text = "GIAM SAT: AN TOAN" if is_safe else "CANH BAO VI PHAM"
-        cv2.putText(frame, badge_text, (20, 36), cv2.FONT_HERSHEY_SIMPLEX, 0.55, status_color, 2)
-        cv2.putText(frame, f"Faces: {face_count} | Yaw: {yaw:+.1f} | Pitch: {pitch:+.1f}", (20, 62), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (200, 210, 225), 1)
+        cv2.putText(frame, badge_text, (20, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.55, status_color, 2)
+        cv2.putText(frame, f"Faces: {face_count} | Yaw: {yaw:+.1f} | Pitch: {pitch:+.1f}", (20, 58), cv2.FONT_HERSHEY_SIMPLEX, 0.40, (200, 210, 225), 1)
+        cv2.putText(frame, f"EAR: {self.ear:.2f} | Blinks: {self.blink_count} | Objs: {len(self.current_detections)}", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (160, 220, 255), 1)
 
     def _generate_simulated_frame(self, t: float) -> np.ndarray:
         """Dynamic test camera feed with animated eye tracking and face box."""

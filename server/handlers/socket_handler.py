@@ -4,6 +4,7 @@ server/handlers/socket_handler.py - Packet Router & Client Request Handler
 Processes framed protocol byte-streams, routes commands to domain services, and replies with structured status codes.
 """
 
+import base64
 import logging
 import socket
 from typing import Any, Dict, Optional, Tuple
@@ -128,6 +129,78 @@ class SocketHandler:
                             "message": msg
                         }
                         send_packet(sock, CommandType.RES_AUTH_FAILED, res)
+
+                elif cmd == CommandType.REQ_AUTH_LOGIN:
+                    u_name = payload.get("username", "").strip()
+                    pwd = payload.get("password", "")
+                    ok, token, role, full_name, msg = self.auth_service.authenticate_user(u_name, pwd)
+                    if ok:
+                        session.student_id = u_name
+                        session.student_name = full_name
+                        session.role = role
+                        self.session_manager.authenticate_session(
+                            sock=sock,
+                            student_id=u_name,
+                            student_name=full_name or u_name,
+                            public_key_pem=session.public_key_pem,
+                            token=token or ""
+                        )
+                        student_id = u_name
+                        student_name = full_name
+                        res = {
+                            "status": "SUCCESS",
+                            "token": token,
+                            "role": role,
+                            "full_name": full_name,
+                            "message": msg
+                        }
+                        send_packet(sock, CommandType.RES_AUTH_SUCCESS, res)
+
+                        if self.web_bridge:
+                            self.web_bridge.broadcast_ws({
+                                "type": "SESSION_UPDATE",
+                                "sessions": self.web_bridge.get_sessions_list(),
+                                "overview": self.web_bridge.get_overview_stats()
+                            })
+                    else:
+                        res = {
+                            "status": "FAILED",
+                            "message": msg
+                        }
+                        send_packet(sock, CommandType.RES_AUTH_FAILED, res)
+
+                elif cmd == CommandType.REQ_AUTH_REGISTER:
+                    u_name = payload.get("username", "").strip()
+                    pwd = payload.get("password", "")
+                    f_name = payload.get("full_name", "").strip()
+                    r_name = payload.get("role", "STUDENT").strip()
+                    email = payload.get("email")
+                    face_b64 = payload.get("face_image_b64")
+                    face_bytes = None
+                    if face_b64:
+                        try:
+                            face_bytes = base64.b64decode(face_b64)
+                        except Exception:
+                            pass
+                    ok, user_id, msg = self.auth_service.register_user(
+                        username=u_name,
+                        password=pwd,
+                        full_name=f_name,
+                        role_name=r_name,
+                        email=email,
+                        face_embedding=face_bytes
+                    )
+                    if ok:
+                        send_packet(sock, CommandType.RES_CONNECT_OK, {
+                            "status": "SUCCESS",
+                            "user_id": user_id,
+                            "message": msg
+                        })
+                    else:
+                        send_packet(sock, CommandType.RES_AUTH_FAILED, {
+                            "status": "FAILED",
+                            "message": msg
+                        })
 
                 elif cmd == CommandType.PING:
                     self.session_manager.update_heartbeat(sock)

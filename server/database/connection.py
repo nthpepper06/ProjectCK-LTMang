@@ -4,11 +4,14 @@ server/database/connection.py - Thread-Safe Database Connection Manager
 Provides WAL Mode, Busy Timeout, Thread-Local Connection Isolation & Atomic Transaction Locks.
 """
 
+import logging
 import os
 import sqlite3
 import threading
 from contextlib import contextmanager
 from typing import Generator, Optional
+
+logger = logging.getLogger("DB_CONNECTION")
 
 DEFAULT_DB_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../../server_storage/exam_system.db")
@@ -68,13 +71,41 @@ class DatabaseConnectionManager:
             self._local.conn = conn
         return conn
 
+    def _apply_migrations(self, conn: sqlite3.Connection) -> None:
+        """Applies backward-compatible column and table migrations."""
+        cur = conn.cursor()
+        # 1. Ensure exams.created_by column exists
+        try:
+            cur.execute("PRAGMA table_info(exams)")
+            cols = [r[1] for r in cur.fetchall()]
+            if cols and "created_by" not in cols:
+                conn.execute("ALTER TABLE exams ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;")
+        except Exception as e:
+            logger.warning(f"Migration exams.created_by error: {e}")
+
+        # 2. Check if 'students' was created as a physical table in earlier iterations; drop if so to let view be created
+        try:
+            cur.execute("SELECT type FROM sqlite_master WHERE name = 'students'")
+            row = cur.fetchone()
+            if row and row[0] == "table":
+                conn.execute("DROP TABLE IF EXISTS students;")
+        except Exception as e:
+            logger.warning(f"Migration students table drop error: {e}")
+
     def init_database(self) -> None:
         """Applies schema.sql definitions to initialize database tables and indexes."""
         if os.path.exists(SCHEMA_SQL_PATH):
             with open(SCHEMA_SQL_PATH, "r", encoding="utf-8") as f:
                 schema_script = f.read()
-            with self.write_transaction() as conn:
-                conn.executescript(schema_script)
+            with self._write_lock:
+                conn = self.get_connection()
+                try:
+                    conn.execute("PRAGMA foreign_keys = OFF;")
+                    self._apply_migrations(conn)
+                    conn.executescript(schema_script)
+                    conn.commit()
+                finally:
+                    conn.execute("PRAGMA foreign_keys = ON;")
 
     @contextmanager
     def write_transaction(self) -> Generator[sqlite3.Connection, None, None]:

@@ -41,3 +41,16 @@ Transform the system from an ad-hoc in-memory server to an enterprise-grade, lay
   - Non-Repudiation RSA Audit Table (Student, SHA-256 Digest, Digital Signature, Verified status)
 - [x] Run automated end-to-end integration test (Client -> Server -> Web Bridge WebSocket & Multicast)
 - [x] Prepare final report (NO git commit/push as instructed by user)
+
+## Phase 5: Commercial-Grade Enterprise Hardening & Multi-Modal AI (SEB / LockDown Level)
+- [x] Part 1: UDP LAN Auto-Discovery (`common/discovery.py`) & Time-out Auto-Submission (`client_desktop/ui/screen_exam.py`)
+- [x] Part 2: Deep OS Hardening via Win32 API (`client_desktop/security/windows_guard.py` - Anti-VM, WH_KEYBOARD_LL, SetWindowDisplayAffinity)
+- [x] Part 3: Multi-Modal Vision & Audio AI (`client_desktop/ai_proctor_thread.py`, `client_desktop/security/audio_monitor.py` - EAR liveness, YOLOv8/object detector, acoustic RMS)
+- [x] Part 4: Exam UX - Diverse Question Types (Multiple Choice + Essay in `client_desktop/ui/screen_exam.py`, Cyber Camera HUD, Scroll fix, Mouse wheel pass-through, End action card)
+- [x] Automated Enterprise Test Suite (`tests/test_enterprise_security.py` & `tests/test_full_system_integration.py` - 8/8 tests passed)
+
+## Sprint 1: Multi-Role RBAC Data Architecture & Enterprise Auth Engine (TASK-01 & TASK-02)
+- [x] Step 1: Update SSOT Documents (`docs/DATABASE_DESIGN.md` ERD + Data Dictionary, `docs/SPEC.md` Opcode table & TCP auth packets)
+- [x] Step 2: Database Schema & Repositories (`server/database/schema.sql` roles/users, `server/database/repositories.py` UserRepository, RoleRepository)
+- [x] Step 3: Auth Engine & Seeder (`server/services/auth_service.py` bcrypt + session token, `server/database/seed_data.py` admin_gv, giamthi_01, SV2026_01)
+- [x] Step 4: Automated Testing (`tests/test_rbac_auth.py` 100% PASS) & Verification Report

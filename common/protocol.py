@@ -30,6 +30,10 @@ class CommandType(IntEnum):
     RES_CONNECT_OK = 0x0002
     RES_CONNECT_ERR = 0x0003
 
+    # Multi-Role RBAC Account Authentication & Registration
+    REQ_AUTH_LOGIN = 0x0007
+    REQ_AUTH_REGISTER = 0x0008
+
     # Biometric Authentication (Face embedding/photo verification)
     REQ_AUTH_BIOMETRIC = 0x0010
     RES_AUTH_SUCCESS = 0x0011

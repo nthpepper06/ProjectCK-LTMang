@@ -28,9 +28,11 @@ from PyQt6.QtWidgets import (
 from client_desktop.ai_proctor_thread import AIProctorThread
 from client_desktop.multicast_listener import MulticastListenerThread
 from client_desktop.network_client import NetworkClient
+from client_desktop.security.audio_monitor import AudioMonitorThread
 from client_desktop.security.clipboard_hook import ClipboardSanitizer
 from client_desktop.security.monitor_blocker import MultiMonitorBlocker
 from client_desktop.security.process_watchdog import ProcessWatchdogThread
+from client_desktop.security.windows_guard import DisplayAffinityGuard, LowLevelKeyboardGuard
 from client_desktop.ui.screen_exam import ExamScreen
 from client_desktop.ui.screen_login import BiometricLoginScreen
 from client_desktop.ui.screen_preflight import PreflightScreen
@@ -95,9 +97,23 @@ class ExamMainWindow(QWidget):
         )
         self.multicast_listener.start()
 
-        # 6. Build 4-Stage QStackedWidget UI
+        # 6. Acoustic Environmental Audio Monitor Thread
+        self.audio_monitor = AudioMonitorThread()
+        self.audio_monitor.audio_alert.connect(self._on_audio_violation)
+
+        # 7. Build 4-Stage QStackedWidget UI
         self._init_ui()
         self._apply_dark_theme()
+
+        # 8. Anti-Screen Capture Protection (Win32 Display Affinity)
+        QTimer.singleShot(600, self._apply_display_affinity)
+
+    def _apply_display_affinity(self) -> None:
+        try:
+            hwnd = int(self.winId())
+            DisplayAffinityGuard.protect_window(hwnd)
+        except Exception:
+            pass
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -120,6 +136,20 @@ class ExamMainWindow(QWidget):
         lbl_app_tag.setStyleSheet("color: #60A5FA;")
         c_layout.addWidget(lbl_app_tag)
         c_layout.addStretch()
+
+        # Minimize Window Button
+        btn_min = QPushButton("🗕 Thu nhỏ")
+        btn_min.setFont(QFont("Segoe UI", 9))
+        btn_min.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_min.setStyleSheet("""
+            QPushButton {
+                background-color: #1E293B; color: #CBD5E1; border: 1px solid #334155; border-radius: 4px; padding: 4px 10px;
+            }
+            QPushButton:hover { background-color: #334155; color: white; }
+        """)
+        btn_min.clicked.connect(self._on_minimize_window)
+        c_layout.addWidget(btn_min)
+        c_layout.addSpacing(8)
 
         # Toggle Fullscreen / Windowed Mode (F11)
         self.btn_toggle_screen = QPushButton("⛶ Cửa sổ / Toàn màn hình (F11)")
@@ -159,6 +189,7 @@ class ExamMainWindow(QWidget):
             proctor_thread=self.proctor_thread
         )
         self.screen_preflight.preflight_passed.connect(self._goto_screen_login)
+        self.screen_preflight.server_config_changed.connect(self._on_server_config_changed)
         self.stacked_widget.addWidget(self.screen_preflight)
 
         # SCREEN 2: Biometric Onboarding & Login
@@ -177,6 +208,13 @@ class ExamMainWindow(QWidget):
         main_layout.addWidget(self.stacked_widget)
         self.stacked_widget.setCurrentIndex(0)
 
+    def _on_server_config_changed(self, host: str, port: int) -> None:
+        """Dynamically rebinds network client when server IP/port is updated or auto-discovered."""
+        self.server_host = host
+        self.server_port = port
+        self.net_client.host = host
+        self.net_client.port = port
+
     def _goto_screen_login(self) -> None:
         self.stacked_widget.setCurrentWidget(self.screen_login)
 
@@ -194,7 +232,23 @@ class ExamMainWindow(QWidget):
         self.stacked_widget.addWidget(self.screen_exam)
         self.stacked_widget.setCurrentWidget(self.screen_exam)
 
+        # 1. Install Win32 Low-Level Keyboard Guard (Swallow Win Key, Alt+Tab, Alt+Esc, Ctrl+Esc, F1-F12)
+        LowLevelKeyboardGuard.install_hook()
+
+        # 2. Start Acoustic Environment Noise/Conversation Monitor
+        try:
+            if not self.audio_monitor.isRunning():
+                self.audio_monitor.start()
+        except Exception:
+            pass
+
     def _goto_screen_receipt(self, receipt: dict, server_sig: str, client_sig: str) -> None:
+        # Uninstall Keyboard Guard upon exam completion
+        LowLevelKeyboardGuard.uninstall_hook()
+        try:
+            self.audio_monitor.stop()
+        except Exception:
+            pass
         self.screen_receipt.set_receipt_data(receipt, server_sig, client_sig)
         self.stacked_widget.setCurrentWidget(self.screen_receipt)
 
@@ -212,6 +266,12 @@ class ExamMainWindow(QWidget):
         if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam:
             self.screen_exam.log_violation(f"⚠️ [{v_type}] {details}")
         self.net_client.report_violation(v_type, details, evidence_jpeg)
+
+    def _on_audio_violation(self, v_type: str, rms: float, duration: float) -> None:
+        msg = f"Phát hiện tiếng nói/hội thoại trong phòng thi (kéo dài {duration:.1f}s, RMS={rms:.3f})"
+        if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam:
+            self.screen_exam.log_violation(f"🚨 [AUDIO_VIOLATION] {msg}")
+        self.net_client.report_violation("CONVERSATION_DETECTED", msg)
 
     def _on_prohibited_process(self, proc_name: str, pid: int, desc: str) -> None:
         msg = f"Phát hiện phần mềm bị cấm: {proc_name} (PID: {pid}) - {desc}"
@@ -233,18 +293,38 @@ class ExamMainWindow(QWidget):
                 self.screen_exam.log_violation("▶️ Giám thị: TIẾP TỤC THI!")
             elif cmd == CommandType.CMD_EXAM_FINISH:
                 self.screen_exam.log_violation("⏰ Giám thị: HẾT GIỜ LÀM BÀI! Tự động nộp bài...")
-                self.screen_exam._execute_submit_exam()
+                self.screen_exam._execute_submit_exam(is_forced=True)
             elif cmd == CommandType.CMD_ANNOUNCEMENT:
                 self.screen_exam.log_violation(f"📢 Giám thị: {payload.get('message', '')}")
+
+    def _on_minimize_window(self) -> None:
+        """Minimizes window and temporarily releases low-level keyboard guard."""
+        LowLevelKeyboardGuard.uninstall_hook()
+        self.showMinimized()
 
     def _toggle_fullscreen_mode(self) -> None:
         """Toggles between strict fullscreen Kiosk and convenient windowed mode."""
         if self.is_fullscreen_mode:
             self.is_fullscreen_mode = False
+            # Remove WindowStaysOnTopHint and release keyboard hook so user can freely switch to other windows
+            self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowStaysOnTopHint)
+            LowLevelKeyboardGuard.uninstall_hook()
+            screen = QApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                w = min(1200, int(geo.width() * 0.94))
+                h = min(720, int(geo.height() * 0.92))
+                self.resize(w, h)
+                self.move(geo.x() + (geo.width() - w) // 2, geo.y() + (geo.height() - h) // 2)
+            else:
+                self.resize(1100, 680)
             self.showNormal()
-            self.resize(1240, 820)
         else:
             self.is_fullscreen_mode = True
+            # Re-apply WindowStaysOnTopHint for strict Kiosk enforcement
+            self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+            if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam and not self.screen_exam.is_submitted:
+                LowLevelKeyboardGuard.install_hook()
             self.showFullScreen()
 
     def _prompt_exit_dialog(self) -> None:
@@ -262,9 +342,12 @@ class ExamMainWindow(QWidget):
     def changeEvent(self, event: QEvent) -> None:
         if event.type() == QEvent.Type.ActivationChange:
             if not self.isActiveWindow():
-                if self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam and not self.screen_exam.is_submitted:
+                if self.is_fullscreen_mode and self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam and not self.screen_exam.is_submitted:
                     self.screen_exam.log_violation("🚨 CẢNH BÁO: Mất tiêu điểm cửa sổ thi (Focus Lost / Alt-Tab)!")
                     self.net_client.report_violation("FOCUS_LOST", "Thí sinh chuyển đổi ứng dụng hoặc mở tab khác.")
+            else:
+                if self.is_fullscreen_mode and self.screen_exam and self.stacked_widget.currentWidget() == self.screen_exam and not self.screen_exam.is_submitted:
+                    LowLevelKeyboardGuard.install_hook()
         super().changeEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
@@ -277,6 +360,11 @@ class ExamMainWindow(QWidget):
         super().keyPressEvent(event)
 
     def closeEvent(self, event) -> None:
+        LowLevelKeyboardGuard.uninstall_hook()
+        try:
+            self.audio_monitor.stop()
+        except Exception:
+            pass
         self.clipboard_sanitizer.stop()
         self.monitor_blocker.remove_blackouts()
         self.process_watchdog.stop()

@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QProgressBar,
     QPushButton,
     QVBoxLayout,
@@ -27,6 +28,8 @@ from PyQt6.QtWidgets import (
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from client_desktop.security.monitor_blocker import MultiMonitorBlocker
+from client_desktop.security.windows_guard import AntiVMDetector
+from common.discovery import ClientLANScanner, load_client_config, save_client_config
 
 
 class PreflightScreen(QWidget):
@@ -40,11 +43,13 @@ class PreflightScreen(QWidget):
     """
 
     preflight_passed = pyqtSignal()
+    server_config_changed = pyqtSignal(str, int)
 
     def __init__(self, server_host: str = "127.0.0.1", server_port: int = 8888, proctor_thread=None, parent=None):
         super().__init__(parent)
-        self.server_host = server_host
-        self.server_port = server_port
+        cfg = load_client_config()
+        self.server_host = cfg.get("server_host", server_host)
+        self.server_port = int(cfg.get("server_port", server_port))
         self.proctor_thread = proctor_thread
         self.all_passed = False
 
@@ -53,8 +58,8 @@ class PreflightScreen(QWidget):
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(40, 30, 40, 30)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(40, 24, 40, 24)
+        main_layout.setSpacing(16)
 
         # Header Title
         lbl_title = QLabel("BƯỚC 1: KIỂM TRA HỆ THỐNG TRƯỚC KỲ THI (PRE-FLIGHT CHECK)")
@@ -62,10 +67,75 @@ class PreflightScreen(QWidget):
         lbl_title.setStyleSheet("color: #60A5FA;")
         main_layout.addWidget(lbl_title)
 
-        lbl_desc = QLabel("Hệ thống kiểm tra tính tương thích của phần cứng, kết nối mạng và màn hình nhằm bảo đảm tính công bằng tuyệt đối.")
+        lbl_desc = QLabel("Hệ thống kiểm tra tính tương thích phần cứng, quét mạng LAN tự động, phát hiện máy ảo (Anti-VM) và bảo đảm tính công bằng tuyệt đối.")
         lbl_desc.setFont(QFont("Segoe UI", 10))
         lbl_desc.setStyleSheet("color: #94A3B8;")
         main_layout.addWidget(lbl_desc)
+
+        # 0. LAN Auto-Discovery & Connection Settings Box
+        conn_box = QFrame()
+        conn_box.setStyleSheet("""
+            QFrame {
+                background-color: #1A2332;
+                border: 1px solid #3B82F6;
+                border-radius: 10px;
+                padding: 8px 14px;
+            }
+        """)
+        c_layout = QHBoxLayout(conn_box)
+        c_layout.setContentsMargins(10, 6, 10, 6)
+        c_layout.setSpacing(12)
+
+        lbl_conn_icon = QLabel("📡 MÁY CHỦ THI:")
+        lbl_conn_icon.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        lbl_conn_icon.setStyleSheet("color: #60A5FA; border: none;")
+        c_layout.addWidget(lbl_conn_icon)
+
+        lbl_ip = QLabel("IP:")
+        lbl_ip.setStyleSheet("color: #CBD5E1; border: none;")
+        c_layout.addWidget(lbl_ip)
+
+        self.txt_server_ip = QLineEdit(self.server_host)
+        self.txt_server_ip.setFixedWidth(130)
+        self.txt_server_ip.setStyleSheet("background-color: #0F172A; color: white; border: 1px solid #334155; border-radius: 4px; padding: 4px 8px;")
+        c_layout.addWidget(self.txt_server_ip)
+
+        lbl_port = QLabel("Port:")
+        lbl_port.setStyleSheet("color: #CBD5E1; border: none;")
+        c_layout.addWidget(lbl_port)
+
+        self.txt_server_port = QLineEdit(str(self.server_port))
+        self.txt_server_port.setFixedWidth(70)
+        self.txt_server_port.setStyleSheet("background-color: #0F172A; color: white; border: 1px solid #334155; border-radius: 4px; padding: 4px 8px;")
+        c_layout.addWidget(self.txt_server_port)
+
+        self.btn_save_ip = QPushButton("💾 Cập nhật IP")
+        self.btn_save_ip.setFont(QFont("Segoe UI", 9))
+        self.btn_save_ip.setStyleSheet("background-color: #334155; color: white; border-radius: 4px; padding: 5px 12px;")
+        self.btn_save_ip.clicked.connect(self._on_manual_ip_save)
+        c_layout.addWidget(self.btn_save_ip)
+
+        c_layout.addSpacing(10)
+
+        self.btn_lan_discover = QPushButton("🔍 Tự động quét Server LAN (UDP)")
+        self.btn_lan_discover.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.btn_lan_discover.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_lan_discover.setStyleSheet("""
+            QPushButton {
+                background-color: #2563EB; color: white; border-radius: 4px; padding: 5px 14px;
+            }
+            QPushButton:hover { background-color: #1D4ED8; }
+        """)
+        self.btn_lan_discover.clicked.connect(self._run_lan_discovery)
+        c_layout.addWidget(self.btn_lan_discover)
+
+        self.lbl_discovery_status = QLabel("")
+        self.lbl_discovery_status.setFont(QFont("Segoe UI", 9))
+        self.lbl_discovery_status.setStyleSheet("color: #10B981; border: none;")
+        c_layout.addWidget(self.lbl_discovery_status)
+        c_layout.addStretch()
+
+        main_layout.addWidget(conn_box)
 
         # Diagnostic Checklist Card
         card = QFrame()
@@ -78,8 +148,8 @@ class PreflightScreen(QWidget):
             }
         """)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(24, 18, 24, 18)
-        card_layout.setSpacing(12)
+        card_layout.setContentsMargins(24, 16, 24, 16)
+        card_layout.setSpacing(10)
 
         # 1. Camera Item
         self.lbl_cam_status = self._create_diag_row(card_layout, "📷 Webcam Giám sát:", "Đang kiểm tra...")
@@ -87,13 +157,16 @@ class PreflightScreen(QWidget):
         # 2. Audio/Mic Item
         self.lbl_mic_status = self._create_diag_row(card_layout, "🎤 Microphone Audio:", "Đang kiểm tra...")
 
-        # 3. Server Network Ping
+        # 3. Anti-VM / Virtual Machine Sandbox Check
+        self.lbl_vm_status = self._create_diag_row(card_layout, "🛡️ Môi trường Hệ thống (Anti-VM):", "Đang quét Hypervisor...")
+
+        # 4. Server Network Ping
         self.lbl_net_status = self._create_diag_row(card_layout, "🌐 Kết nối Server & Ping Latency:", "Đang đo RTT...")
 
-        # 4. Battery / Power Source
+        # 5. Battery / Power Source
         self.lbl_pwr_status = self._create_diag_row(card_layout, "🔋 Nguồn điện & Pin:", "Đang kiểm tra...")
 
-        # 5. Single Monitor Check
+        # 6. Single Monitor Check
         self.lbl_scr_status = self._create_diag_row(card_layout, "🖥️ Kiểm tra Màn hình kết nối:", "Đang quét thiết bị...")
 
         main_layout.addWidget(card)
@@ -151,6 +224,53 @@ class PreflightScreen(QWidget):
         layout.addLayout(row)
         return lbl_val
 
+    def _on_manual_ip_save(self) -> None:
+        ip = self.txt_server_ip.text().strip()
+        try:
+            port = int(self.txt_server_port.text().strip())
+        except ValueError:
+            port = 8888
+        self.server_host = ip
+        self.server_port = port
+        save_client_config({"server_host": ip, "server_port": port, "auto_discovered": False})
+        self.lbl_discovery_status.setText(f"✔ Đã lưu cấu hình: {ip}:{port}")
+        self.lbl_discovery_status.setStyleSheet("color: #10B981; border: none;")
+        self.server_config_changed.emit(ip, port)
+        self.run_diagnostics()
+
+    def _run_lan_discovery(self) -> None:
+        self.lbl_discovery_status.setText("🔍 Đang phát UDP broadcast tìm Server...")
+        self.lbl_discovery_status.setStyleSheet("color: #60A5FA; border: none;")
+        self.btn_lan_discover.setEnabled(False)
+
+        scanner = ClientLANScanner()
+        server_meta = scanner.discover_server(timeout_seconds=2.5)
+        self.btn_lan_discover.setEnabled(True)
+
+        if server_meta:
+            ip = server_meta.get("server_ip", "127.0.0.1")
+            port = int(server_meta.get("tcp_port", 8888))
+            name = server_meta.get("exam_title", "Exam Server")
+            self.txt_server_ip.setText(ip)
+            self.txt_server_port.setText(str(port))
+            self.server_host = ip
+            self.server_port = port
+            save_client_config({"server_host": ip, "server_port": port, "auto_discovered": True})
+            self.lbl_discovery_status.setText(f"🎉 Đã tìm thấy: {name} ({ip}:{port})")
+            self.lbl_discovery_status.setStyleSheet("color: #10B981; border: none;")
+            self.server_config_changed.emit(ip, port)
+            self.run_diagnostics()
+        else:
+            self.lbl_discovery_status.setText("⚠️ Không thấy server qua Broadcast. Vui lòng nhập IP thủ công.")
+            self.lbl_discovery_status.setStyleSheet("color: #F59E0B; border: none;")
+
+    def _check_anti_vm(self) -> Tuple[bool, str]:
+        """Detects hypervisors and virtual machine sandboxes."""
+        is_vm, msg, _ = AntiVMDetector.evaluate_environment()
+        if is_vm:
+            return False, f"CẢNH BÁO MÁY ẢO: {msg}"
+        return True, "Hệ thống vật lý thực tế (Bare-metal Verified)"
+
     def run_diagnostics(self) -> None:
         """Executes all system diagnostics."""
         self.btn_next.setEnabled(False)
@@ -165,19 +285,23 @@ class PreflightScreen(QWidget):
         mic_ok, mic_msg = self._check_mic()
         self._set_status(self.lbl_mic_status, mic_ok, mic_msg)
 
-        # 3. Server Network Latency Check
+        # 3. Anti-VM check
+        vm_ok, vm_msg = self._check_anti_vm()
+        self._set_status(self.lbl_vm_status, vm_ok, vm_msg)
+
+        # 4. Server Network Latency Check
         net_ok, net_msg = self._check_server_ping()
         self._set_status(self.lbl_net_status, net_ok, net_msg)
 
-        # 4. Power / Battery Check
+        # 5. Power / Battery Check
         pwr_ok, pwr_msg = self._check_power()
         self._set_status(self.lbl_pwr_status, pwr_ok, pwr_msg)
 
-        # 5. Monitor Check
+        # 6. Monitor Check
         scr_ok, scr_msg = self._check_monitors()
         self._set_status(self.lbl_scr_status, scr_ok, scr_msg)
 
-        self.all_passed = cam_ok and net_ok and scr_ok and pwr_ok
+        self.all_passed = cam_ok and mic_ok and vm_ok and net_ok and scr_ok and pwr_ok
         if self.all_passed:
             self.lbl_summary.setText("✅ TẤT CẢ ĐIỀU KIỆN ĐẠT CHUẨN! Bấm nút bên dưới để tiếp tục.")
             self.lbl_summary.setStyleSheet("color: #10B981;")

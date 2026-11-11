@@ -63,5 +63,7 @@ exam_local_drafts.db
 *.pfx
 *.p12
 
-# Logs
+# Logs & Runtime Configs
 *.log
+client_config.json
+test_client_config.json

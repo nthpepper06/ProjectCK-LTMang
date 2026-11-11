@@ -17,6 +17,7 @@ from typing import Dict, Optional
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from common.crypto_utils import generate_rsa_keypair
+from common.discovery import ServerDiscoveryResponder
 from server.core.session_manager import ClientSession, SessionManager, get_session_manager
 from server.database.connection import DatabaseConnectionManager, get_db_manager
 from server.database.repositories import (
@@ -55,6 +56,8 @@ class ExamTCPServer:
         enable_web: bool = True,
         http_port: int = 8080,
         ws_port: int = 8081,
+        enable_discovery: bool = True,
+        discovery_port: int = 5006,
     ):
         self.host = host
         self.port = port
@@ -63,6 +66,8 @@ class ExamTCPServer:
         self.enable_web = enable_web
         self.http_port = http_port
         self.ws_port = ws_port
+        self.enable_discovery = enable_discovery
+        self.discovery_port = discovery_port
         os.makedirs(self.evidence_dir, exist_ok=True)
         os.makedirs("server_storage/submissions", exist_ok=True)
 
@@ -109,7 +114,18 @@ class ExamTCPServer:
                 web_dir="proctor_web"
             )
 
-        # 6. Initialize Socket Handler (Packet Router)
+        # 6. Initialize UDP LAN Auto-Discovery Responder
+        self.discovery_responder: Optional[ServerDiscoveryResponder] = None
+        if self.enable_discovery:
+            self.discovery_responder = ServerDiscoveryResponder(
+                server_ip=self.host if self.host != "0.0.0.0" else None,
+                tcp_port=self.port,
+                http_port=self.http_port,
+                ws_port=self.ws_port,
+                discovery_port=self.discovery_port
+            )
+
+        # 7. Initialize Socket Handler (Packet Router)
         self.socket_handler = SocketHandler(
             session_manager=self.session_manager,
             auth_service=self.auth_service,
@@ -144,6 +160,8 @@ class ExamTCPServer:
         self.session_manager.start_watchdog()
         if self.web_bridge:
             self.web_bridge.start()
+        if self.discovery_responder:
+            self.discovery_responder.start()
 
         try:
             while self.is_running:
@@ -177,6 +195,8 @@ class ExamTCPServer:
 
         self.session_manager.stop_watchdog()
         self.session_manager.close_all()
+        if self.discovery_responder:
+            self.discovery_responder.stop()
         if self.web_bridge:
             self.web_bridge.stop()
         self.thread_pool.shutdown(wait=False, cancel_futures=True)

@@ -91,3 +91,75 @@
 - [x] Rà soát và cập nhật [`.gitignore`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/.gitignore) chặn rò rỉ cơ sở dữ liệu (`*.db`), ảnh snapshot (`server_storage/`), khóa mật mã (`*.pem`, `*.key`), và cache (`__pycache__/`, `.venv/`).
 - [x] Kiểm tra danh sách file sạch bằng `git status`.
 - [x] Dừng lại ở báo cáo, tuân thủ không chạy `git push` cho đến khi có lệnh phê duyệt.
+
+---
+
+## GIAI ĐOẠN 5: COMMERCIAL-GRADE ENTERPRISE HARDENING & MULTI-MODAL AI (SEB / LOCKDOWN LEVEL)
+- [x] **Phần 1: Mạng LAN Tự Động & Điều Khiển Phòng Thi (Zero-Config LAN & Exam Lifecycle):**
+  - [x] Xây dựng module khám phá mạng [`common/discovery.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/common/discovery.py) với `ServerDiscoveryResponder` (UDP 5006) và `ClientLANScanner` (quét 3s).
+  - [x] Tích hợp `ServerDiscoveryResponder` vào [`server/tcp_server.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/tcp_server.py).
+  - [x] Tích hợp quét tự động và cấu hình thủ công fallback kèm lưu `client_config.json` vào [`client_desktop/ui/screen_preflight.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/ui/screen_preflight.py).
+  - [x] Triển khai cơ chế Đồng hồ cưỡng chế nộp bài (Time-out Auto-Submission) khi đếm ngược về 00:00:00 hoặc nhận `CMD_EXAM_FINISH` tại [`client_desktop/ui/screen_exam.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/ui/screen_exam.py).
+- [x] **Phần 2: Phòng Thủ Tầng Sâu Hệ Điều Hành (Deep OS Hardening via Win32 API):**
+  - [x] Xây dựng module [`client_desktop/security/windows_guard.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/security/windows_guard.py) giao tiếp nhân Windows qua `ctypes`.
+  - [x] Triển khai Anti-VM & Hypervisor Detection (quét BIOS/System Model Registry và OUI Prefix MAC address ảo).
+  - [x] Triển khai Low-Level Keyboard Hook (`WH_KEYBOARD_LL = 13`): Chặn triệt để Windows key, Alt+Tab, Alt+Esc, Ctrl+Esc, F1-F12 (cho phép F11 cho Kiosk switch) và đảm bảo unhook an toàn khi thoát/nộp bài.
+  - [x] Triển khai Chống quay màn hình & chụp lén (`SetWindowDisplayAffinity` với `WDA_MONITOR`/`WDA_EXCLUDEFROMCAPTURE`) biến cửa sổ thành màu đen trên OBS/Discord/Zoom/Snipping Tool.
+- [x] **Phần 3: AI Giám Sát Đa Phương Thức (Multi-Modal Vision & Audio AI):**
+  - [x] Nâng cấp [`client_desktop/ai_proctor_thread.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/ai_proctor_thread.py) với Eye Aspect Ratio (EAR) và theo dõi chớp mắt phát hiện ảnh tĩnh lặp lại / spoofing.
+  - [x] Tích hợp mô hình ONNX Runtime / fallback detector phát hiện vật thể cấm (`cell phone`) và phát hiện có trên 1 người (`person` count > 1) định kỳ mỗi 2 giây.
+  - [x] Xây dựng luồng thu âm ngầm giám sát âm thanh môi trường [`client_desktop/security/audio_monitor.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/security/audio_monitor.py) tính toán RMS năng lượng âm thanh, kích hoạt cảnh báo đàm thoại liên tục > 3 giây.
+- [x] **Phần 4: Đa Dạng Hóa Loại Câu Hỏi & Trải Nghiệm Khảo Thí (Exam UX & Cyber HUD):**
+  - [x] Tích hợp [`client_desktop/ui/cyber_camera_hud.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/ui/cyber_camera_hud.py) với `QPainter` vẽ 4 góc Reticle chữ L, tia quét Laser Face ID, vector nhìn 3D Gaze Ray và các badge Glassmorphism hiển thị góc đầu Yaw/Pitch, EAR, số khuôn mặt.
+  - [x] Tích hợp Cyber Camera HUD vào Màn hình Đăng nhập sinh trắc học ([`screen_login.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/ui/screen_login.py)) và Màn hình Thi chính ([`screen_exam.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/ui/screen_exam.py)).
+  - [x] Nâng cấp [`client_desktop/ui/screen_exam.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/client_desktop/ui/screen_exam.py) hỗ trợ cả Trắc nghiệm (`multiple_choice` với `QRadioButton` / `QButtonGroup`) và Tự luận (`essay` với `QTextEdit`).
+  - [x] Giải quyết triệt để lỗi scroll: Cài đặt `eventFilter` lên `ans_input.viewport()` chống bẫy con lăn chuột (Mouse Wheel Trap) khi di chuyển qua ô nhập văn bản; áp dụng `SetMinAndMaxSize` lên `questions_layout`.
+  - [x] Bổ sung Thẻ hành động nộp bài cuối cùng (`ExamEndActionCard`) ngay dưới câu hỏi cuối cùng của danh sách cuộn, cho phép thí sinh nộp bài tiện lợi từ cả thanh Sticky Bottom Bar lẫn cuối trang đề thi.
+  - [x] Hoàn thiện chuyển đổi Kiosk/Cửa sổ/Thu nhỏ: Tự động tháo gỡ `LowLevelKeyboardGuard` khi Thu nhỏ hoặc chuyển sang chế độ Cửa sổ để thuận tiện cho Giám thị/Thí sinh thao tác, và tự động tái cài đặt bảo mật khi quay lại Chế độ Toàn màn hình Kiosk.
+  - [x] Cập nhật [`server/database/seed_data.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/database/seed_data.py) bổ sung câu hỏi tự luận mẫu và tái tạo seed data.
+  - [x] Chuẩn hóa lưu nháp tự động vào SQLite cục bộ (`exam_local_drafts.db`).
+- [x] **Kiểm thử tự động & Báo cáo:**
+  - [x] Viết test suite chuyên sâu [`tests/test_enterprise_security.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/tests/test_enterprise_security.py) kiểm tra UDP LAN Discovery, Anti-VM check, Auto-submit, và Win32 guard logic (7/7 tests passed).
+  - [x] Viết test suite tích hợp luồng hoàn chỉnh [`tests/test_full_system_integration.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/tests/test_full_system_integration.py) kiểm tra toàn trình từ TCP Handshake $\to$ Face Auth $\to$ Đề thi $\to$ Báo cáo vi phạm $\to$ Ký số RSA $\to$ Lưu DB (1/1 test passed).
+  - [x] Toàn bộ 8/8 tests đạt 100% PASS.
+  - [x] Xuất báo cáo nghiệm thu chi tiết, TUYỆT ĐỐI KHÔNG tự ý chạy `git push`.
+
+---
+
+## SPRINT 1: THIẾT KẾ KIẾN TRÚC DỮ LIỆU ĐA VAI TRÒ (RBAC) & AUTH ENGINE DOANH NGHIỆP (TASK-01 & TASK-02)
+- [x] **Bước 1: Cập nhật Tài liệu Nguồn sự thật (SSOT Docs):**
+  - [x] Cập nhật [`docs/DATABASE_DESIGN.md`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/docs/DATABASE_DESIGN.md): Vẽ lại sơ đồ ERD Mermaid chuẩn hóa quan hệ giữa các bảng `roles`, `users`, `exams`, `questions`, `submissions`, `violation_logs`. Từ điển dữ liệu cho `roles`, `users` (thay thế/bổ trợ bảng `students` cũ) và các chỉ mục (`idx_users_username`, `idx_users_role_id`, `idx_exams_created_by`).
+  - [x] Cập nhật [`docs/SPEC.md`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/docs/SPEC.md): Bổ sung định dạng bản tin xác thực tài khoản qua giao thức TCP (Packet Header 23-byte): Opcode `REQ_AUTH_LOGIN` (`0x0007`) và `REQ_AUTH_REGISTER` (`0x0008`) kèm payload JSON và cấu trúc phản hồi.
+- [x] **Bước 2: Tầng Dữ liệu & Repositories (`server/database/`):**
+  - [x] Cập nhật [`server/database/schema.sql`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/database/schema.sql): DDL tạo mới bảng `roles` và tái cấu trúc bảng `users` với `password_hash` bcrypt/PBKDF2, `role_id` (FK), `email`, `rsa_public_key`, `face_embedding`, `status`. Tạo view `students` tương thích ngược.
+  - [x] Cập nhật [`server/database/connection.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/database/connection.py): Bổ sung cơ chế auto-migration thêm cột `exams.created_by` và quản lý khóa ngoại an toàn khi thiết lập schema.
+  - [x] Cập nhật [`server/database/repositories.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/database/repositories.py):
+    - [x] `RoleRepository`: `get_or_create_role()`, `get_by_name()`, `get_by_id()`, `list_roles()`.
+    - [x] `UserRepository`: `create_user()`, `get_by_username()`, `get_by_id()`, `verify_credentials()` (so khớp bcrypt/PBKDF2), `update_face_embedding()`, `update_public_key()`, `list_users()`.
+    - [x] `StudentRepository`: Lớp bọc tương thích ngược (wrapper) ánh xạ sang `UserRepository`.
+    - [x] `ExamRepository`: Bổ sung `created_by`.
+    - [x] `SubmissionRepository` & `ViolationRepository`: Tự động phân giải `student_id` (MSSV) sang `user_id` qua `_resolve_user_id()`.
+- [x] **Bước 3: Dịch vụ Xác thực & Hạt giống Dữ liệu (`server/services/auth_service.py` & `seed_data.py`):**
+  - [x] Cập nhật [`server/services/auth_service.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/services/auth_service.py):
+    - [x] Tích hợp băm mật khẩu `bcrypt` (kèm dự phòng chuẩn SHA256 PBKDF2-HMAC).
+    - [x] Hàm `authenticate_user(username, password)`: Xác thực thông tin, sinh session token định dạng `f"{username}:{role}:{timestamp}:{hmac_sig}"`.
+    - [x] Hàm `register_user(...)`: Kiểm tra username trùng lặp, băm mật khẩu an toàn và lưu vào DB.
+    - [x] Hàm `verify_session_token(...)`: Xác thực tính toàn vẹn chữ ký HMAC và độ tươi mới của token.
+    - [x] Hàm `authenticate_student(...)`: Duy trì tương thích ngược 100% cho luồng sinh trắc học Face ID.
+  - [x] Cập nhật [`server/handlers/socket_handler.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/handlers/socket_handler.py): Tiếp nhận và xử lý `REQ_AUTH_LOGIN` và `REQ_AUTH_REGISTER`.
+  - [x] Cập nhật [`server/database/seed_data.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/server/database/seed_data.py):
+    - [x] Khởi tạo 3 vai trò hệ thống: `ADMIN`, `PROCTOR`, `STUDENT`.
+    - [x] Khởi tạo 3 tài khoản mặc định băm mật khẩu bằng bcrypt:
+      * `admin_gv` / `Admin@2026` (Vai trò: `ADMIN`)
+      * `giamthi_01` / `Proctor@2026` (Vai trò: `PROCTOR`)
+      * `SV2026_01` / `Student@2026` (Vai trò: `STUDENT`, nạp sẵn vector khuôn mặt 128-d)
+    - [x] Khởi tạo kỳ thi `LTM_2026_FINAL` liên kết với `admin_gv` (`created_by=admin_id`).
+- [x] **Bước 4: Kiểm thử Tự động (Unit Tests) & Nghiệm thu:**
+  - [x] Tạo file kiểm thử mới [`tests/test_rbac_auth.py`](file:///C:/Users/PC/OneDrive/Documents/LapTrinhMang_Project/tests/test_rbac_auth.py):
+    1. Test khởi tạo DB và chèn đủ 3 vai trò (`ADMIN`, `PROCTOR`, `STUDENT`).
+    2. Test đăng ký tài khoản mới và kiểm tra mật khẩu đã được băm an toàn trong DB (tuyệt đối không lưu plaintext).
+    3. Test đăng nhập thành công với đúng vai trò và cấp token HMAC hợp lệ.
+    4. Test từ chối truy cập khi nhập sai mật khẩu, tài khoản không tồn tại, hoặc đăng ký trùng lặp.
+    5. Test bảo mật chống giả mạo session token (tampered token rejection).
+  - [x] Chạy toàn bộ test suite (`discover tests`): 13/13 tests PASSED (100%).
+  - [x] Tuân thủ kỷ luật: Dừng lại tại báo cáo nghiệm thu, **TUYỆT ĐỐI KHÔNG chạy lệnh `git push`**.
